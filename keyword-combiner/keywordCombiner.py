@@ -309,7 +309,7 @@ def create_summarizing_prompt(topics_list):
 
     # add as many topics lists as provided.
     for i in range(len(topics_list)):
-        prompt += f"\nList {i}\n"
+        prompt += f"\n\nList {i + 1}:\n\n"
         prompt += topics_list[i]
 
     return prompt
@@ -327,8 +327,10 @@ def summarize_topics(topics_list, model = "gpt-4o"):
     """
     # generate prompt
     prompt = create_summarizing_prompt(topics_list)
-    # ask chatbot and return answer
+
+    # ask chatbot and save answer
     results = askOpenAI(prompt, model)
+
     return results
 
 if __name__ == "__main__":
@@ -370,7 +372,7 @@ if __name__ == "__main__":
     keywords_lists.append(yake_keywords(headlines, dataset_name))
 
     # summarize prompt with OpenAI client and print answer
-    results = create_summarizing_prompt(keywords_lists)
+    results = summarize_topics(keywords_lists)
     print("\nResults:")
     print(results)
 
