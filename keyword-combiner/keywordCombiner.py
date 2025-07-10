@@ -300,8 +300,10 @@ def create_summarizing_prompt(topics_list):
     # initial prompt
     prompt = "Here are three lists of news topics and their frequencies."
     prompt += "Please summarize them into the top 50 news topics between these lists."
-    prompt += "Each topic should be a short, 2-5 word description which could be provided to users as a useful keyword filter."
-    prompt += "Each topic should also be an intelligible, specific news topic/event/person, not vague topics like simply 'Bill' or 'Cup'."
+    prompt += "Each topic should be a short, 2-5 word descriptive title which could be provided to users as a useful keyword filter."
+    prompt += "The topics should be capitalized as titles."
+    prompt += "Each topic should also be an intelligible, specific news topic/event/person."
+    prompt += "Do not include vague topics like simply 'Bill' or 'Cup'."
     # prompt += "Provide them as a numbered list, don't include their frequency count, and don't include any text before or after the list."
     prompt += "Don't include their frequency count. Provide them as an ordered list in JSON notation."
     prompt += "Don't include any text before or after the JSON list. Your response should be a valid, parseably JSON file."
@@ -345,7 +347,7 @@ if __name__ == "__main__":
         parser.error("Date must be in MM-DD-YYYY format.")
 
     # print data and collection information to console
-    print(f"\nRetrieving news topics from {args.date} in the '{args.collection}' collection.\n")
+    print(f"\nRetrieving news topics from {args.date} in the MediaCloud '{args.collection}' collection.\n")
 
     # format dataset name for path and file creation
     dataset_name = f"mediacloud-{args.collection}-{args.date}"
