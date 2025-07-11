@@ -1,0 +1,18 @@
+# ignore python cache
+__pycache__/
+*.pyc
+pyrightconfig.json
+
+# ignore OS files
+.DS_Store
+
+# file types to ignore
+*.csv
+
+# ignore config files
+config.py
+
+# folders to ignore
+data/
+packages/
+scratch/
