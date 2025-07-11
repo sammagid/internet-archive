@@ -1,2 +1,0 @@
-# api keys
-PERPLEXITY_API_KEY = "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"
