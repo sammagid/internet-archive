@@ -4,7 +4,7 @@ Google News AI Chatbot Reponses
 Retrieves the top stories from Google News RSS feed and asks AI chatbots to provide
 information about them.
 
-Example Usage: python google-news.py 'en-US' 'US' 'US:en'
+Example Usage: python googleNews.py 'en-US' 'US' 'US:en'
 
 Author: Sam Magid
 """
@@ -42,7 +42,7 @@ def fetch_articles(host_lang, geo_loc, client_ed_id):
     Returns:
         pandas.DataFrame: Dataset of article titles and corresponding Google News links
     """
-    print("Fetching today's articles from Google News...")
+    print("\nFetching today's articles from Google News...")
 
     # build feed request URL
     feed_url = f"{BASE_FEED_URL}?hl={host_lang}&gl={geo_loc}&ceid={client_ed_id}"
@@ -57,7 +57,21 @@ def fetch_articles(host_lang, geo_loc, client_ed_id):
 
     # turn into pandas dataframe and return
     df = pd.DataFrame(rows)
+    print(f"Successfully fetched {len(df)} articles!")
     return df
+
+def split_titles(df):
+    """
+    Splits a Google News headline ("[title] - [news outlet]") into separate columns.
+
+    Args:
+        df (pandas.DataFrame): Dataset of news headlines, with headlines under 'title' column.
+
+    Returns:
+        None (modifies data in place).
+    """
+    # split using regex
+    df[['title', 'news-outlet']] = df['title'].str.extract(r'^(.*) - ([^-]+)$')
 
 def ask_perplexity(prompt, model = "sonar-pro"):
     """
@@ -89,9 +103,9 @@ def add_perplexity_responses(df):
         df (pandas.DataFrame): Dataset of news headlines, with headlines under 'title' column.
 
     Returns:
-        None (modifies data in place)
+        None (modifies data in place).
     """
-    print("Asking Perplexity about headlines...")
+    print("\nAsking Perplexity about headlines...")
 
     # initialize empty columns
     df["perplexity_prompt"] = None
@@ -127,17 +141,19 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
 
     # print useful information to terminal
-    print(f"\nAsking AI chatbots about top Google News headlines from {todays_date}.\n")
-    print("Running processes:")
+    print(f"\nAsking AI chatbots about top Google News headlines from {todays_date}.")
 
-    # fetch articles and save to csv
+    # fetch articles and save to a dataframe
     df = fetch_articles(host_lang = args.host_lang, geo_loc = args.geo_loc, client_ed_id = args.client_ed_id)
+
+    # OPTIONAL TESTING: remove source from headline
+    split_titles(df)
 
     # ask perplexity about each headline
     add_perplexity_responses(df)
 
     # save to CSV file
-    out_file = os.path.join(out_dir, f"{todays_date}_{args.host_lang}_{args.geo_loc}_{args.client_ed_id}.csv")
+    out_file = os.path.join(out_dir, f"{todays_date}_{args.host_lang}_{args.geo_loc}_{args.client_ed_id.replace(":","-")}.csv")
     df.to_csv(out_file, index=False)
 
     # print success statement
