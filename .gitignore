@@ -9,6 +9,7 @@ pyrightconfig.json
 # file types to ignore
 *.csv
 *.env
+*.json
 
 # ignore config files
 config.py
@@ -17,3 +18,4 @@ config.py
 data/
 packages/
 scratch/
+outputs/

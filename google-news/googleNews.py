@@ -157,7 +157,7 @@ def main():
     df.to_csv(out_file, index=False)
 
     # print success statement
-    print(f"Articles and responses successfully saved to {out_file}.")
+    print(f"Articles and responses successfully saved to {out_file}.\n")
 
 if __name__ == "__main__":
     main()
