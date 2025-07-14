@@ -126,13 +126,14 @@ def add_perplexity_responses(df):
 
 def main():
     """
-    Parses command line arguments, fetches RSS data, and saves to appropriate location (making directories if needed).
+    Parses command line arguments, fetches RSS data, prompts AI clients, and saves to appropriate location
+    (making directories if needed).
     """
     # parse command line arguments
-    parser = argparse.ArgumentParser(description = "Retrieve and save top stories from Google News RSS feed.")
-    parser.add_argument("host_lang", help = "Language of Google News interface (e.g. en-US, en-GB, fr-FR)")
-    parser.add_argument("geo_loc", help = "Country location variable determining which sources to prioritize (e.g. US, FR, IN)")
-    parser.add_argument("client_ed_id", help = "News edition designator, determines content of articles (e.g. US:en, IN:hi, IN:en)")
+    parser = argparse.ArgumentParser(description = "Retrieve top stories from Google News RSS feed and ask AI clients about them.")
+    parser.add_argument("host_lang", help = "Language of Google News interface (e.g. en-US, en-GB, fr-FR).")
+    parser.add_argument("geo_loc", help = "Country location variable determining which sources to prioritize (e.g. US, FR, IN).")
+    parser.add_argument("client_ed_id", help = "News edition designator, determines content of articles (e.g. US:en, IN:hi, IN:en).")
     args = parser.parse_args()
     
     # create output directory if not exist
