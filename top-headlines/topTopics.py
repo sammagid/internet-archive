@@ -106,7 +106,7 @@ def main():
     print(f"\nAsking AI chatbots for{f" {args.n}" if args.n else ""} top news topics{region_string} on {todays_date}.")
 
     # build prompt with optional arguments
-    prompt = f"What are the{f" {args.n}" if args.n else ""} top news topics{region_string} today?"
+    prompt = f"What are the top{f" {args.n}" if args.n else ""} news topics{region_string} today?"
 
     # create empty list of rows, to be filled by AI client response data
     rows = []
