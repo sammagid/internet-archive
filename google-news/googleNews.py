@@ -22,6 +22,9 @@ from openai import OpenAI
 # base url of google news rss feed
 BASE_FEED_URL = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en"
 
+# LIMIT ARTICLES to limit API costs right now
+ARTICLE_LIMIT = 5
+
 # api keys
 PERPLEXITY_API_KEY = config.PERPLEXITY_API_KEY
 OPENAI_API_KEY = config.OPENAI_API_KEY
@@ -63,7 +66,10 @@ def fetch_articles(host_lang, geo_loc, client_ed_id, split_titles):
             rows.append({"source": "Google News", "title": entry.title, "url": entry.link})
 
     # turn into pandas dataframe and return
-    df = pd.DataFrame(rows)
+    if ARTICLE_LIMIT: # if limit set, cut off extra articles
+        df = pd.DataFrame(rows[:ARTICLE_LIMIT])
+    else:
+        df = pd.DataFrame(rows)
     print(f"Successfully fetched {len(df)} articles!")
     return df
 
