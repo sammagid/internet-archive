@@ -13,6 +13,7 @@ import config
 import argparse
 from datetime import datetime
 import os
+import ast
 import feedparser
 import pandas as pd
 from tqdm import tqdm
@@ -23,9 +24,11 @@ BASE_FEED_URL = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en"
 
 # api keys
 PERPLEXITY_API_KEY = config.PERPLEXITY_API_KEY
+OPENAI_API_KEY = config.OPENAI_API_KEY
 
 # loads ai clients
 PERPLEXITY_CLIENT = OpenAI(api_key=PERPLEXITY_API_KEY, base_url="https://api.perplexity.ai")
+OPENAI_CLIENT = OpenAI(api_key = OPENAI_API_KEY)
 
 # folder to output data
 OUTPUT_FOLDER = "outputs"
@@ -123,6 +126,27 @@ def ask_perplexity(prompt, model = "sonar-pro"):
     )
     return response.model_dump()
 
+def askOpenAI(prompt, model = "gpt-4o"):
+    """
+    Sends a prompt to the OpenAI client and returns the response.
+
+    Args:
+        prompt (string): Prompt for OpenAI client to answer.
+        model (string): Which OpenAI model to use.
+    
+    Returns:
+        dict: Dictionary representation of response from OpenAI.
+    """
+    # build the message (can also include a system prompt)
+    messages = [{"role": "user", "content": prompt}]
+
+    # send prompt to client and return response message
+    response = OPENAI_CLIENT.chat.completions.create(
+        model=model,
+        messages=messages,
+    )
+    return response.model_dump()
+
 def add_perplexity_responses(df):
     """
     Prompts Perplexity AI client to respond to news titles from a dataset and populates
@@ -152,6 +176,119 @@ def add_perplexity_responses(df):
         df.at[i, "perplexity_prompt"] = prompt
         df.at[i, "perplexity_response"] = response['choices'][0]['message']['content']
         df.at[i, "perplexity_citations"] = response['citations']
+
+def generate_questions(headline):
+    """
+    Generates a list of context-rich questions to ask about a news headline, using
+    an AI client (currently gpt-4o).
+    
+    Args:
+        headline (str): Any news headline.
+    
+    Returns:
+        str[]: A list of questions to ask about the input headline.
+    """
+    # initialize empty list to populate
+    question_list = []
+
+    # add basic question
+    basic_question = "Tell me about this headline:"
+    question_list.append(f"{basic_question} {headline}")
+
+    # build question-getting prompt for chatbot
+    prompt = "Come up with a list of questions to ask about this headline. "
+    prompt += "Each of the questions should include all necessary context. "
+    prompt += "Provide them as a valid Python list of strings, with no extra text or ``` formatting headers/footers."
+    prompt += "\n\n"
+    prompt += headline
+
+    # query AI chatbot for a list of natural questions
+    response = askOpenAI(prompt)
+
+    # get just message out of response
+    message = response['choices'][0]['message']['content']
+
+    # just in case, remove headers from message if exist
+    message = message.replace("```python", "")
+    message = message.replace("```", "")
+
+    # evaluate as a python list and add to question_list
+    list_representation = ast.literal_eval(message)
+    question_list += list_representation
+
+    return question_list
+
+def add_questions(df):
+    """
+    Prompts an AI client to generate questions for each headline in a dataset.
+
+    Args:
+        df (pandas.DataFrame): Dataset of news headlines, with headlines under 'title' column.
+
+    Returns:
+        None (modifies data in place).
+    """
+    print("\nGenerating questions about headlines...")
+
+    # initialize empty question column
+    df["questions"] = None
+    
+    # iterate through each title (with progress bar) and generate questions.
+    for i, row in tqdm(df.iterrows(), total=len(df)):
+        title = df.at[i, "title"]
+        df.at[i, "questions"] = generate_questions(title)
+
+def generate_answers(questions):
+    """
+    Prompts an AI client (currently Perplexity) to answer questions for a set of headline questions.
+
+    Args:
+        questions (str[]): A list of questions generated for a given headline.
+    
+    Returns:
+        dict[]: A list of dictionaries with the following keys:
+              - 'question': The question asked of the AI client.
+              - 'answer': The response received from the client.
+              - 'citations': Any citations received.
+    """
+    # initialize empty list of question/answer/citations dicts
+    responses = []
+
+    # ask about each question
+    for question in questions:
+        # ask AI client (currently perplexity)
+        response = ask_perplexity(question)
+
+        # separate fields
+        answer = response['choices'][0]['message']['content']
+        citations = response['citations']
+
+        # add response dict to list of responses
+        responses.append({'question': question, 'answer': answer, 'citations': citations})
+
+    # return populated list of questions/responses/citation dicts
+    return responses
+
+def add_answers(df):
+    """
+    Prompts an AI client (currently Perplexity) to answer questions for each set of headline questions,
+    and populated dataset with those answers.
+
+    Args:
+        df (pandas.DataFrame): Dataset of news headlines, with questions under 'questions' column.
+
+    Returns:
+        None (modifies data in place).
+    """
+    print("\nGenerating answers to questions...")
+
+    # initialize empty answers column
+    df["answers"] = None
+
+    # iterate through each title (with progress bar) and generate answers.
+    for i, row in tqdm(df.iterrows(), total=len(df)):
+        questions = df.at[i, "questions"]
+        df.at[i, "answers"] = generate_answers(questions)
 
 def main():
     """
@@ -185,7 +322,13 @@ def main():
         split_titles(df)
 
     # ask perplexity about each headline
-    add_perplexity_responses(df)
+    # add_perplexity_responses(df)
+
+    # generate questions for each headline and add as column
+    add_questions(df)
+
+    # generate answers for each set of questions and add as column
+    add_answers(df)
 
     # build out file
     out_file = f"{todays_date}_{args.host_lang}_{args.geo_loc}_{args.client_ed_id.replace(":","-")}"
