@@ -9,30 +9,42 @@ Example Usage: python googleNews.py 'en-US' 'US' 'US:en'
 Author: Sam Magid
 """
 
-import config
 import argparse
-from datetime import datetime
 import os
+import sys
 import ast
 import json
+from datetime import datetime
+
 import feedparser
 import pandas as pd
 from tqdm import tqdm
+
 from openai import OpenAI
+from google import genai
+from google.genai import types
+
+import config
 
 # base url of google news rss feed
 BASE_FEED_URL = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en"
 
-# LIMIT ARTICLES to limit API costs right now
+# limit articles to reduce API costs for testing
 ARTICLE_LIMIT = 5
 
 # api keys
 PERPLEXITY_API_KEY = config.PERPLEXITY_API_KEY
 OPENAI_API_KEY = config.OPENAI_API_KEY
+GEMINI_API_KEY = config.GEMINI_API_KEY
 
 # loads ai clients
 PERPLEXITY_CLIENT = OpenAI(api_key=PERPLEXITY_API_KEY, base_url="https://api.perplexity.ai")
 OPENAI_CLIENT = OpenAI(api_key = OPENAI_API_KEY)
+GEMINI_CLIENT = genai.Client(api_key = GEMINI_API_KEY)
+
+# list of clients we are querying for question answers now
+WORKING_CLIENTS = ["perplexity", "gemini"]
+# WORKING_CLIENTS = ["gemini"]
 
 # folder to output data
 OUTPUT_FOLDER = "outputs"
@@ -154,41 +166,36 @@ def ask_openai(prompt, model = "gpt-4o"):
     )
     return response.model_dump()
 
-# map of client names to function calls
-CLIENT_FUNCTION_MAP = {
-    "perplexity": ask_perplexity,
-    "openai": ask_openai
-}
-
-def add_perplexity_responses(df):
+def ask_gemini(prompt, model = "gemini-2.5-flash"):
     """
-    Prompts Perplexity AI client to respond to news titles from a dataset and populates
-    that dataset with Perplexity's answers and citations.
+    Sends a prompt to the Google Gemini client and returns the response.
 
     Args:
-        df (pandas.DataFrame): Dataset of news headlines, with headlines under 'title' column.
-
+        prompt (string): Prompt for Gemini client to answer.
+        model (string): Which Gemini model to use.
+    
     Returns:
-        None (modifies data in place).
+        dict: Dictionary representation of response from Gemini.
     """
-    print("\nAsking Perplexity about headlines...")
+    # configure search tool
+    grounding_tool = types.Tool(
+        google_search=types.GoogleSearch()
+    )
 
-    # initialize empty columns
-    df["perplexity_prompt"] = None
-    df["perplexity_response"] = None
-    df["perplexity_citations"] = None
+    # configure settings
+    config = types.GenerateContentConfig(
+        tools=[grounding_tool]
+    )
 
-    # iterate through each title (with progress bar) and ask Perplexity about it
-    for i, row in tqdm(df.iterrows(), total=len(df)):
-        # get response from perplexity
-        title = df.at[i, "title"]
-        prompt = f"Tell me about this headline: {title}"
-        response = ask_perplexity(prompt)
+    # query client and save response
+    response = GEMINI_CLIENT.models.generate_content(
+        model = model,
+        contents = prompt,
+        config = config
+    )
 
-        # populate prompt, answer, and citation in dataset
-        df.at[i, "perplexity_prompt"] = prompt
-        df.at[i, "perplexity_response"] = response['choices'][0]['message']['content']
-        df.at[i, "perplexity_citations"] = response['citations']
+    # return a dictionary of model response
+    return response.model_dump()
 
 def generate_questions(headline):
     """
@@ -209,8 +216,8 @@ def generate_questions(headline):
     question_list.append(f"{basic_question} {headline}")
 
     # build question-getting prompt for chatbot
-    prompt = "Come up with a list of questions to ask about this headline. "
-    prompt += "Each of the questions should include all necessary context. "
+    prompt = "Come up with a list of questions people might ask about this headline. "
+    prompt += "Each of the questions should include all necessary context so that another AI chatbot could understand exactly what the question is asking and answer it. "
     prompt += "Provide them as a valid Python list of strings, with no extra text or ``` formatting headers/footers."
     prompt += "\n\n"
     prompt += headline
@@ -247,41 +254,86 @@ def add_questions(df):
     df["questions"] = None
     
     # iterate through each title (with progress bar) and generate questions.
-    for i, row in tqdm(df.iterrows(), total=len(df)):
+    for i, row in tqdm(df.iterrows(), total = len(df), desc = "headlines"):
         title = df.at[i, "title"]
         df.at[i, "questions"] = generate_questions(title)
 
-def generate_answers(questions, client):
+def generate_perplexity_answers(questions):
     """
-    Prompts an AI client to answer questions for a set of headline questions.
+    Prompts Perplexity AI client to answer questions for a set of headline questions.
 
     Args:
         questions (str[]): A list of questions generated for a given headline.
-        client (str): Name of AI client to ask for answers (currently 'perplexity' or 'openai').
     
     Returns:
         dict[]: A list of dictionaries with the following keys:
-              - 'question': The question asked of the AI client.
-              - 'answer': The response received from the client.
+              - 'question': The question asked of Perplexity.
+              - 'answer': The response received from Perplexity.
               - 'citations': Any citations received.
     """
-    # get function call for client
-    ask_client = CLIENT_FUNCTION_MAP[client]
-
     # initialize empty list of question/answer/citations dicts
     responses = []
 
     # ask about each question
-    for question in questions:
-        # ask AI client (currently perplexity)
-        response = ask_client(question)
-
-        # separate fields
-        answer = response['choices'][0]['message']['content']
-        citations = response['citations']
+    for question in tqdm(questions, desc = "questions", leave = False):
+        # catch bad responses
+        try:
+            # ask perplexity client
+            response = ask_perplexity(question)
+            # separate fields
+            answer = response['choices'][0]['message']['content']
+            citations = response['citations']
+        except Exception as e:
+            print(f"Error processing question: {question}\n{e}")
+            answer = "Bad response from client."
+            citations = []
 
         # add response dict to list of responses
-        responses.append({'question': question, 'answer-client': client, 'answer': answer, 'citations': citations})
+        responses.append({'question': question, 'answer': answer, 'citations': citations})
+
+    # return populated list of questions/responses/citation dicts
+    return responses
+
+def generate_gemini_answers(questions):
+    """
+    Prompts Google Gemini to answer questions for a set of headline questions.
+
+    Args:
+        questions (str[]): A list of questions generated for a given headline.
+    
+    Returns:
+        dict[]: A list of dictionaries with the following keys:
+              - 'question': The question asked of Gemini.
+              - 'answer': The response received from Gemini.
+              - 'citations': Any citations received.
+    """
+    # initialize empty list of question/answer/citations dicts
+    responses = []
+
+    # ask about each question
+    for question in tqdm(questions, desc = "questions", leave = False):
+        try: # catch response error
+            # ask gemini client
+            response = ask_gemini(question)
+            try: # catch malformed or empty responses
+                # extract answer
+                answer = response['candidates'][0]['content']['parts'][0]['text']
+                # extract citation urls (note: these are all vertexaisearch.cloud.google.com URLs)
+                grounding_chunks = response['candidates'][0]['grounding_metadata']['grounding_chunks']
+                citations = [chunk['web']['uri'] for chunk in grounding_chunks] if grounding_chunks else []
+            except Exception as e:
+                print(f"\nError processing question: {question}\n{e}")
+                print(f"Received response: {response}")
+                answer = "Bad response from client."
+                citations = []
+        except Exception as e:
+            print(f"\nError processing question: {question}\n{e}")
+            print(f"No response received.")
+            answer = "No response from client."
+            citations = []
+
+        # add response dict to list of responses
+        responses.append({'question': question, 'answer': answer, 'citations': citations})
 
     # return populated list of questions/responses/citation dicts
     return responses
@@ -297,20 +349,34 @@ def add_answers(df, client):
     Returns:
         None (modifies data in place).
     """
-    print("\nGenerating answers to questions...")
+    print(f"\nGenerating answers to questions using {client}...")
+
+    # map of client names to function calls
+    VALID_CLIENTS = {
+        "perplexity": generate_perplexity_answers,
+        "gemini": generate_gemini_answers
+    }
+
+    # check to make sure client is valid
+    if client not in VALID_CLIENTS:
+        print(f"Invalid client '{client}' passed to add_answers(). Must be one of {list(VALID_CLIENTS.keys())}.")
+        sys.exit(1)
+    
+    # get client from map
+    generate_answers = VALID_CLIENTS[client]
 
     # initialize empty answers column
-    df["question-answers"] = None
+    df[f"{client}-answers"] = None
 
     # iterate through each title (with progress bar) and generate answers.
-    for i, row in tqdm(df.iterrows(), total=len(df)):
+    for i, row in tqdm(df.iterrows(), total=len(df), desc = "headlines"):
         questions = df.at[i, "questions"]
-        df.at[i, "question-answers"] = generate_answers(questions, client)
+        df.at[i, f"{client}-answers"] = generate_answers(questions)
 
-def jsonify_data(df):
+def jsonify_data(df, client):
     """
     Turns a populated headline/question/answer/citation dataset into a nicely formatted
-    JSON string.
+    JSON string for a given client's answers.
 
     Args:
         df (pandas.DataFrame): Dataset with at least the following columns:
@@ -318,43 +384,51 @@ def jsonify_data(df):
                              - 'news-outlet' (str): News source of article.
                              – 'url' (str): URL pointing to article.
                              - 'question-answers' (dict): A dictionary of all the question/client/answer/citation pairs.
+        client (str): Which client's answers to output.
 
     Returns:
         str: A nicely formatted JSON string of the dataset.
     """
+
     # build a list of all the data, to be JSONified
     data = []
 
     # iterate through each row/headline
-    for i, row in tqdm(df.iterrows(), total=len(df)):
+    for i, row in df.iterrows():
         headline = df.at[i, "title"]
         source = df.at[i, "source"]
         outlet = df.at[i, "news-outlet"]
         url = df.at[i, "url"]
-        qas = df.at[i, "question-answers"]
+        qas = df.at[i, f"{client}-answers"]
         data.append({"headline": headline,
                      "source": source,
                      "news-outlet": outlet,
                      "url": url,
                      "questions": qas})
     
+    # put list into a dictionary with key as client name
+    data_with_client = {'client': client, 'data': data}
+
     # turn list into a json string and return
-    return json.dumps(data, indent=4)
+    return json.dumps(data_with_client, indent=4)
 
 def jsonify_columns(df):
     """
-    Converts 'questions' and 'question-answers' columns of df to JSON (to be done before saving).
+    Converts 'questions' and all '[client]-answers' columns of df to JSON (to be done before saving).
 
     Args:
         df (pandas.DataFrame): Dataset of news headlines, with columns:
                              - 'questions' (str[])
-                             - 'question-answers' (dict[])
+                             - '[client]-answers' for all clients in WORKING_CLIENTS (dict[])
     
     Returns:
         None (modifies data in place).
     """
+    # jsonify questions column
     df['questions'] = df['questions'].apply(json.dumps)
-    df['question-answers'] = df['question-answers'].apply(json.dumps)
+    # jsonify all answer columns
+    for client in WORKING_CLIENTS:
+        df[f'{client}-answers'] = df[f'{client}-answers'].apply(json.dumps)
 
 def main():
     """
@@ -383,38 +457,37 @@ def main():
                         client_ed_id = args.client_ed_id,
                         split_titles = args.split_titles)
 
-    # OPTIONAL (TESTING): separate news outlet from headline
+    # separate news outlet from headline if specified
     if args.split_titles:
         split_titles(df)
-
-    # ask perplexity about each headline
-    # add_perplexity_responses(df)
 
     # generate questions for each headline and add as column
     add_questions(df)
 
-    # generate answers for each set of questions and add as column
-    add_answers(df, "perplexity")
+    # generate answers for each set of questions and each AI client
+    for client in WORKING_CLIENTS:
+        add_answers(df, client)
 
     # create out file name
-    out_file = f"{todays_date}_{args.host_lang}_{args.geo_loc}_{args.client_ed_id.replace(":","-")}"
-    out_file += "_split" if args.split_titles else ""
+    out_file_base = f"{todays_date}_{args.host_lang}_{args.geo_loc}_{args.client_ed_id.replace(":","-")}"
+    out_file_base += "_split" if args.split_titles else ""
 
-    # create full json out file name and save json data
-    out_file_json = out_file + ".json"
-    out_path_json = os.path.join(out_dir, out_file_json)
-    json_data = jsonify_data(df)
-    with open(out_path_json, "w") as file:
-        file.write(json_data)
-
-    # print success statement
-    print(f"\nJSON data successfully saved to {out_path_json}.")
+    # create full json out file for each AI client used
+    for client in WORKING_CLIENTS:
+        out_file_json = out_file_base + f"_{client}"
+        out_file_json += ".json"
+        out_path_json = os.path.join(out_dir, out_file_json)
+        json_data = jsonify_data(df, client)
+        with open(out_path_json, "w") as file:
+            file.write(json_data)
+        # print success statement
+        print(f"\nJSON data successfully saved to {out_path_json}.")
 
     # jsonify cell output for csv data
-    jsonify_columns(df)
+    # jsonify_columns(df)
 
     # create full csv out file name and save to csv
-    out_file_csv = out_file + ".csv"
+    out_file_csv = out_file_base + ".csv"
     out_path_csv = os.path.join(out_dir, out_file_csv)
     df.to_csv(out_path_csv, index=False)
 
