@@ -1,7 +1,6 @@
+import argparse
 import os
 import json
-
-DATA_PATH = "/Users/sam/internet-archive/google-news/outputs/07-16-2025/07-16-2025_en-US_US_US-en_split.json"
 
 def convert_to_markdown(filepath):
     """
@@ -40,10 +39,15 @@ def convert_to_markdown(filepath):
     return output
 
 def main():
+    # parse arguments
+    parser = argparse.ArgumentParser(description = "Convert a JSON output from googleNews.py into a nice markdown file.")
+    parser.add_argument("input", help = "Input JSON file to convert to markdown.")
+    args = parser.parse_args()
+
     # open json file and parse into md
-    md = convert_to_markdown(DATA_PATH)
+    md = convert_to_markdown(args.input)
     # save to file
-    file_out = f"{os.path.splitext(DATA_PATH)[0]}.md"
+    file_out = f"{os.path.splitext(args.input)[0]}.md"
     with open(file_out, 'w') as file:
         file.write(md)
 
