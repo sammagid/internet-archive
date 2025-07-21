@@ -15,6 +15,7 @@ import sys
 import ast
 import json
 from datetime import datetime
+import requests
 
 import feedparser
 import pandas as pd
@@ -30,7 +31,7 @@ import config
 BASE_FEED_URL = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en"
 
 # limit articles to reduce API costs for testing
-ARTICLE_LIMIT = 5
+ARTICLE_LIMIT = 3
 
 # api keys
 PERPLEXITY_API_KEY = config.PERPLEXITY_API_KEY
@@ -43,8 +44,8 @@ OPENAI_CLIENT = OpenAI(api_key = OPENAI_API_KEY)
 GEMINI_CLIENT = genai.Client(api_key = GEMINI_API_KEY)
 
 # list of clients we are querying for question answers now
-WORKING_CLIENTS = ["perplexity", "gemini"]
-# WORKING_CLIENTS = ["gemini"]
+# WORKING_CLIENTS = ["perplexity", "gemini"]
+WORKING_CLIENTS = ["gemini"]
 
 # folder to output data
 OUTPUT_FOLDER = "outputs"
@@ -216,11 +217,12 @@ def generate_questions(headline):
     question_list.append(f"{basic_question} {headline}")
 
     # build question-getting prompt for chatbot
-    prompt = "Come up with a list of questions people might ask about this headline. "
-    prompt += "Each of the questions should include all necessary context so that another AI chatbot could understand exactly what the question is asking and answer it. "
+    prompt = "Come up with a list of 5-10 questions people might ask about this headline. "
+    prompt += "Make sure to generate some factual questions, some subjective, and some speculative. "
+    prompt += "Each of the questions should include all necessary information so that no additional context is needed to understand what events, people, or topics the question is referring to. "
     prompt += "Provide them as a valid Python list of strings, with no extra text or ``` formatting headers/footers."
     prompt += "\n\n"
-    prompt += headline
+    prompt += f"Headline: {headline}"
 
     # query AI chatbot for a list of natural questions
     response = ask_openai(prompt)
@@ -257,6 +259,24 @@ def add_questions(df):
     for i, row in tqdm(df.iterrows(), total = len(df), desc = "headlines"):
         title = df.at[i, "title"]
         df.at[i, "questions"] = generate_questions(title)
+
+def get_url_redirect(url):
+    """
+    Gets the target URL for a URL redirect.
+
+    Args:
+        url (str): The URL containing a redirect.
+
+    Returns:
+        str: The target URL from the redirect.
+    """
+    try:
+        response = requests.head(url, allow_redirects = True, timeout = 10)
+        return response.url
+    except Exception as e:
+        print(f"Error resolving {url}: {e}")
+        # if issue, return original url
+        return url
 
 def generate_perplexity_answers(questions):
     """
@@ -321,6 +341,8 @@ def generate_gemini_answers(questions):
                 # extract citation urls (note: these are all vertexaisearch.cloud.google.com URLs)
                 grounding_chunks = response['candidates'][0]['grounding_metadata']['grounding_chunks']
                 citations = [chunk['web']['uri'] for chunk in grounding_chunks] if grounding_chunks else []
+                # redirect citations
+                citations = [get_url_redirect(url) for url in citations]
             except Exception as e:
                 print(f"\nError processing question: {question}\n{e}")
                 print(f"Received response: {response}")
