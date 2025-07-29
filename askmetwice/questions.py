@@ -1,0 +1,1 @@
+# write a function to take a dataframe of questions and ask the chatbots
