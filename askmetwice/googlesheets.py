@@ -144,7 +144,7 @@ def pd_to_sheet(sheet_id, creds, df, tab_name):
             body = body
         ).execute()
 
-        print(f"DataFrame written to '{tab_name}'")
+        print(f"DataFrame written to '{tab_name}'.")
 
     except HttpError as err:
         print(f"ERROR: {err}")
@@ -269,7 +269,7 @@ def apply_formatting(sheet_id, creds, format_requests):
     Args:
         sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
-        format_requests (dict[]): A list of formatting requests to be applied to the target tab.
+        format_requests (dict[]): A list of formatting requests to be applied to the target tab (specified in request).
     
     Returns:
         None.
@@ -285,15 +285,15 @@ def apply_formatting(sheet_id, creds, format_requests):
     except HttpError as err:
         print(f"ERROR: {err}")
 
-def format_child_dataset(sheet_id, creds, tab_name):
+def format_tab(sheet_id, creds, tab_name):
     """
-    Applies specific formatting for a child (daily) dataset, including bold headers,
-    wider columns, and text wrapping.
+    Applies specific formatting for a given tab of a child (daily) dataset, including
+    bold headers, text wrapping, and columns spaced for the given tab.
 
     Args:
         sheet_id (str): The ID for the child Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
-        tab_name (str): Name of tab to format.
+        tab_name (str): Name of tab to format (currently "master", "headlines", or "questions").
     
     Returns:
         None.
@@ -301,8 +301,146 @@ def format_child_dataset(sheet_id, creds, tab_name):
     # get numeric tab ID (needed for formatting request)
     tab_id = get_tab_id(sheet_id, creds, tab_name)
 
-    # build formatting request
-    format_requests = [
+    # formatting request for master sheet column widths
+    master_columns = [
+        { # set 'date' width to 100px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 0,
+                    "endIndex": 1
+                },
+                "properties": {
+                    "pixelSize": 100
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set 'link to AMT dataset' width to 650
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 1,
+                    "endIndex": 2
+                },
+                "properties": {
+                    "pixelSize": 650
+                },
+                "fields": "pixelSize"
+            }
+        }
+    ]
+
+    # formatting request for headlines tab (child sheet) column widths
+    headlines_columns = [
+        { # set 'source' width to 100px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 0,
+                    "endIndex": 1
+                },
+                "properties": {
+                    "pixelSize": 100
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set 'title' width to 400px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 1,
+                    "endIndex": 2
+                },
+                "properties": {
+                    "pixelSize": 400
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set 'news outlet' width to 200px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 2,
+                    "endIndex": 3
+                },
+                "properties": {
+                    "pixelSize": 200
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set 'url' width to 800px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 3,
+                    "endIndex": 4
+                },
+                "properties": {
+                    "pixelSize": 800
+                },
+                "fields": "pixelSize"
+            }
+        }
+    ]
+
+    # formatting request for headlines tab (child sheet) column widths
+    questions_columns = headlines_columns + [
+        { # set 'question' width to 450px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 4,
+                    "endIndex": 5
+                },
+                "properties": {
+                    "pixelSize": 450
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set 'ai client' width to 200px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 5,
+                    "endIndex": 6
+                },
+                "properties": {
+                    "pixelSize": 200
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set 'response path' width to 300px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 6,
+                    "endIndex": 7
+                },
+                "properties": {
+                    "pixelSize": 300
+                },
+                "fields": "pixelSize"
+            }
+        }
+    ]
+
+    # formatting request for bold headers and non-bold body
+    bold_format = [
         { # make headers bold
             "repeatCell": {
                 "range": {
@@ -318,48 +456,24 @@ def format_child_dataset(sheet_id, creds, tab_name):
                 "fields": "userEnteredFormat.textFormat.bold"
             }
         },
-        { # set column B width to 400px
-            "updateDimensionProperties": {
+        { # make body non-bold
+            "repeatCell": {
                 "range": {
                     "sheetId": tab_id,
-                    "dimension": "COLUMNS",
-                    "startIndex": 1,  # Column B = index 1
-                    "endIndex": 2
+                    "startRowIndex": 1
                 },
-                "properties": {
-                    "pixelSize": 400
+                "cell": {
+                    "userEnteredFormat": {
+                        "textFormat": {"bold": False}
+                    }
                 },
-                "fields": "pixelSize"
+                "fields": "userEnteredFormat.textFormat.bold"
             }
-        },
-        { # set column C width to 200px
-            "updateDimensionProperties": {
-                "range": {
-                    "sheetId": tab_id,
-                    "dimension": "COLUMNS",
-                    "startIndex": 2,  # Column C = index 2
-                    "endIndex": 3
-                },
-                "properties": {
-                    "pixelSize": 200
-                },
-                "fields": "pixelSize"
-            }
-        },
-        { # set column D width to 800px
-            "updateDimensionProperties": {
-                "range": {
-                    "sheetId": tab_id,
-                    "dimension": "COLUMNS",
-                    "startIndex": 3,  # Column D = index 3
-                    "endIndex": 4
-                },
-                "properties": {
-                    "pixelSize": 800
-                },
-                "fields": "pixelSize"
-            }
-        },
+        }
+    ]
+
+    # formatting request for text wrapping
+    text_wrapping = [
         { # wrap text for whole sheet
             "repeatCell": {
                 "range": {
@@ -374,6 +488,20 @@ def format_child_dataset(sheet_id, creds, tab_name):
             }
         }
     ]
+
+    # pick column formatting based on tab name
+    if tab_name == "master":
+        format_requests = master_columns
+    elif tab_name == "headlines":
+        format_requests = headlines_columns
+    elif tab_name == "questions":
+        format_requests = questions_columns
+    else:
+        raise ValueError("Invalid tab name given to format_tab().")
+
+    # add bold and text wrapping requests
+    format_requests += bold_format
+    format_requests += text_wrapping
 
     # execute formatting request
     apply_formatting(sheet_id, creds, format_requests)

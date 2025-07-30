@@ -1,6 +1,13 @@
 import feedparser
 import pandas as pd
 
+import config
+import internetarchive as ia
+
+# Internet Archive API keys (for optional URL archiving)
+IA_ACCESS_KEY = config.IA_ACCESS_KEY
+IA_SECRET_KEY = config.IA_SECRET_KEY
+
 # base url of google news rss feed
 BASE_FEED_URL = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en"
 
@@ -10,7 +17,7 @@ def split_titles(df):
 
     Args:
         df (pandas.DataFrame): Dataset of news headlines, with headlines under 'title' column
-        and empty 'news-outlet' column.
+        and empty 'news outlet' column.
 
     Returns:
         None (modifies data in place).
@@ -41,16 +48,17 @@ def split_titles(df):
             # no hyphen found, no outlet
             return pd.Series([title, ""])
 
-    df[['title', 'news-outlet']] = df['title'].apply(split_single_title)
+    df[['title', 'news outlet']] = df['title'].apply(split_single_title)
 
-def fetch_articles(host_lang, geo_loc, client_ed_id, separate_titles = True, article_limit = 0):
+def fetch_articles(host_lang, geo_loc, client_ed_id, archive_urls = True, separate_titles = True, article_limit = None):
     """
     Fetches the "Top Stories" from the Google News RSS feed.
 
     Args:
-        host_lang (str): Language of Google News interface (e.g. en-US, en-GB, fr-FR)
-        geo_loc (str): Country location variable determining which sources to prioritize (e.g. US, FR, IN)
-        client_ed_id (str): News edition designator, determines content of articles (e.g. US:en, IN:hi, IN:en)
+        host_lang (str): Language of Google News interface (e.g. en-US, en-GB, fr-FR).
+        geo_loc (str): Country location variable determining which sources to prioritize (e.g. US, FR, IN).
+        client_ed_id (str): News edition designator, determines content of articles (e.g. US:en, IN:hi, IN:en).
+        archive_urls (bool): Whether to archive the Google News URLs with SPN and save the archived URLs instead.
         separate_titles (bool): Whether to separate news outlet information from headline title.
         article_limit (int): Max number of articles to fetch.
     
@@ -64,22 +72,32 @@ def fetch_articles(host_lang, geo_loc, client_ed_id, separate_titles = True, art
 
     # retrieve rss feed with feedparser
     rss_feed = feedparser.parse(feed_url)
+    rss_entries = rss_feed.entries
+
+    # shorten feed if max articles specified
+    if article_limit:
+        rss_entries = rss_entries[:article_limit]
+    print(f"Successfully fetched {len(rss_entries)} articles!")
 
     # populate a list of rows
     rows = []
-    for entry in rss_feed.entries:
-        rows.append({"source": "Google News", "title": entry.title, "url": entry.link})
+    for entry in rss_entries:
+        title = entry.title
+        url = entry.link
+        # optionally archive url
+        if archive_urls:
+            archived_url = ia.save_page(IA_ACCESS_KEY, IA_SECRET_KEY, url)
+            # replace url if successful
+            if archived_url:
+                url = archived_url
+        rows.append({"source": "Google News", "title": title, "url": url})
 
-    # turn into pandas dataframe and limit if set
-    if article_limit: # if limit set, cut off extra articles
-        df = pd.DataFrame(rows[:article_limit])
-    else:
-        df = pd.DataFrame(rows)
-    print(f"Successfully fetched {len(df)} articles!")
+    # turn into pandas dataframe
+    df = pd.DataFrame(rows)
 
     # separate titles from news outlet, if specified
     if separate_titles:
-        df.insert(2, 'news-outlet', None)
+        df.insert(2, 'news outlet', None)
         split_titles(df)
     
     return df
