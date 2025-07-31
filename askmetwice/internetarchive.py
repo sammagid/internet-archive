@@ -30,7 +30,7 @@ def send_spn_request(access_key, secret_key, url):
         response = requests.post(endpoint, headers = headers, data = data, timeout = 30)
         response.raise_for_status()
     except requests.exceptions.HTTPError as http_err:
-        print(f"HTTP error occurre in send_spn_request(): {http_err}.")
+        print(f"HTTP error occurred in send_spn_request(): {http_err}.")
         return None
     except requests.exceptions.Timeout:
         print("Request timed out in send_spn_request().")
@@ -41,10 +41,10 @@ def send_spn_request(access_key, secret_key, url):
 
     return response # None if error occurred
 
-def retrieve_spn_url(access_key, secret_key, response, try_interval = 5, max_tries = 8):
+def retrieve_spn_url(access_key, secret_key, response, try_interval = 5, max_tries = 40):
     """
-    Checks the status of an archive request several times and returns the archive.org URL
-    if archive is successful.
+    Checks the status of an archive request several times (up to max_tries) and returns the
+    archive.org URL if archive is successful.
 
     Args:
         access_key (str): Internet Archive S3-Like API access key (https://archive.org/account/s3.php).
@@ -83,6 +83,9 @@ def retrieve_spn_url(access_key, secret_key, response, try_interval = 5, max_tri
                 archive_url = f"https://web.archive.org/web/{data["timestamp"]}/{data["original_url"]}"
                 print("Archiving successful!")
                 return archive_url
+            elif status != "error":
+                print("Error in archiving URL.")
+                return None
             # wait before the next try
             time.sleep(try_interval)
         # return None if maximum tries exceeded
@@ -90,7 +93,7 @@ def retrieve_spn_url(access_key, secret_key, response, try_interval = 5, max_tri
         return None
         
     except requests.exceptions.HTTPError as http_err:
-        print(f"HTTP error occurre in send_spn_request(): {http_err}.")
+        print(f"HTTP error occurred in send_spn_request(): {http_err}.")
         return None
     except requests.exceptions.Timeout:
         print("Request timed out in send_spn_request().")
