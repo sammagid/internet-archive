@@ -20,8 +20,8 @@ DATA_FOLDER_ID = config.DATA_FOLDER_ID
 # local folder to save JSON outputs
 JSON_FOLDER = config.JSON_FOLDER
 
-# chatbots to query
-CHATBOTS = ["perplexity"]
+# chatbots to query (options: "perplexity" "openai" and "gemini")
+CHATBOTS = ["perplexity", "gemini"]
 
 # max number of articles to fetch from google news (set low for testing)
 MAX_ARTICLES = 5
