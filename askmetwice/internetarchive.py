@@ -83,7 +83,7 @@ def retrieve_spn_url(access_key, secret_key, response, try_interval = 5, max_tri
                 archive_url = f"https://web.archive.org/web/{data["timestamp"]}/{data["original_url"]}"
                 print(f"Successful archive at {archive_url}!")
                 return archive_url
-            elif status != "error":
+            elif status == "error":
                 print(f"Error in archiving URL. See issue here: {status_url}.")
                 return None
             # wait before the next try
