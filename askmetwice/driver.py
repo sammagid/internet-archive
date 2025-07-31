@@ -24,7 +24,7 @@ JSON_FOLDER = config.JSON_FOLDER
 CHATBOTS = ["perplexity", "gemini"]
 
 # max number of articles to fetch from google news (set low for testing)
-MAX_ARTICLES = 5
+MAX_ARTICLES = None
 
 def main():
     # authenticate Google API
@@ -33,7 +33,7 @@ def main():
     # create new sheet for child dataset, append row to master sheet, and nicely format
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%d")
-    child_sheet_name = f"AMT {timestamp}"
+    child_sheet_name = f"AMT News {timestamp}"
     child_sheet_id = gs.create_spreadsheet(creds, child_sheet_name, DATA_FOLDER_ID, public_access = True, tab_name = "headlines")
     child_sheet_url = f"https://docs.google.com/spreadsheets/d/{child_sheet_id}/"
     gs.append_row(MASTER_SHEET_ID, creds, "master", [timestamp, child_sheet_url])
