@@ -89,7 +89,7 @@ def retrieve_spn_url(access_key, secret_key, response, try_interval = 5, max_tri
             # wait before the next try
             time.sleep(try_interval)
         # return None if maximum tries exceeded
-        print("SPN Exceeded maximum tries.")
+        print(f"SPN Exceeded maximum tries. See status here: {status_url}.")
         return None
         
     except requests.exceptions.HTTPError as http_err:
