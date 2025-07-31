@@ -84,7 +84,7 @@ def retrieve_spn_url(access_key, secret_key, response, try_interval = 5, max_tri
                 print(f"Successful archive at {archive_url}!")
                 return archive_url
             elif status != "error":
-                print("Error in archiving URL.")
+                print(f"Error in archiving URL. See issue here: {status_url}.")
                 return None
             # wait before the next try
             time.sleep(try_interval)
