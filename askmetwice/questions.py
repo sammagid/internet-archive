@@ -101,7 +101,7 @@ def ask_questions(df, chatbots, save_folder):
         pandas.DataFrame: A new dataframe with questions answered in saved JSON files linked
         in 'response path' column.
     """
-    print("Answering questions about headlines.")
+    print(f"Answering questions about headlines (clients: {chatbots}).")
 
     # map of ai chatbot names to their function calls
     cb_functions = {
