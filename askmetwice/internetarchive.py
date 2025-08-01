@@ -44,7 +44,9 @@ def send_spn_request(access_key, secret_key, url):
 def retrieve_spn_url(access_key, secret_key, response, try_interval = 5, max_tries = 40):
     """
     Checks the status of an archive request several times (up to max_tries) and returns the
-    archive.org URL if archive is successful.
+    archive.org URL if archive is successful. Note: given the various timeouts of SPN (see
+    https://docs.google.com/document/d/1Nsv52MvSjbLb2PCpHlat0gkzw0EvtSgpKHu4mk0MnrA/), the
+    product of try_interval and max_tries should be >= 3min to catch all successful archives.
 
     Args:
         access_key (str): Internet Archive S3-Like API access key (https://archive.org/account/s3.php).
@@ -81,7 +83,7 @@ def retrieve_spn_url(access_key, secret_key, response, try_interval = 5, max_tri
             if status == "success":
                 # build the final archive URL
                 archive_url = f"https://web.archive.org/web/{data["timestamp"]}/{data["original_url"]}"
-                print(f"Successful archive at {archive_url}!")
+                print(f"Successful archive at {archive_url}.")
                 return archive_url
             elif status == "error":
                 print(f"Error in archiving URL. See issue here: {status_url}.")
