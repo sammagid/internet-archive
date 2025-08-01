@@ -112,3 +112,10 @@ def ask_gemini(prompt, model = "gemini-2.5-flash"):
         'response': response
     }
     return result
+
+# map of ai chatbot names to their function calls
+CB_FUNCTIONS = {
+    "perplexity": ask_perplexity,
+    "openai": ask_openai,
+    "gemini": ask_gemini
+}
