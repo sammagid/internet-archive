@@ -9,9 +9,9 @@ pyrightconfig.json
 # file types to ignore
 *.csv
 *.env
-*.json
 *.txt
 *.log
+*.json
 
 # ignore config files
 config.py
