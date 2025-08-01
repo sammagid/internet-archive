@@ -303,13 +303,27 @@ def format_tab(sheet_id, creds, tab_name):
 
     # formatting request for master sheet column widths
     master_columns = [
-        { # set 'date' width to 100px
+        { # set 'date' width to 120px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
                     "dimension": "COLUMNS",
                     "startIndex": 0,
                     "endIndex": 1
+                },
+                "properties": {
+                    "pixelSize": 120
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set 'dataset type' width to 100px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 1,
+                    "endIndex": 2
                 },
                 "properties": {
                     "pixelSize": 100
@@ -322,8 +336,8 @@ def format_tab(sheet_id, creds, tab_name):
                 "range": {
                     "sheetId": tab_id,
                     "dimension": "COLUMNS",
-                    "startIndex": 1,
-                    "endIndex": 2
+                    "startIndex": 2,
+                    "endIndex": 3
                 },
                 "properties": {
                     "pixelSize": 650
@@ -393,8 +407,8 @@ def format_tab(sheet_id, creds, tab_name):
         }
     ]
 
-    # formatting request for headlines tab (child sheet) column widths
-    questions_columns = headlines_columns + [
+    # formatting request for news questions tab (child sheet) column widths
+    news_questions_columns = headlines_columns + [
         { # set 'question' width to 450px
             "updateDimensionProperties": {
                 "range": {
@@ -430,6 +444,52 @@ def format_tab(sheet_id, creds, tab_name):
                     "dimension": "COLUMNS",
                     "startIndex": 6,
                     "endIndex": 7
+                },
+                "properties": {
+                    "pixelSize": 300
+                },
+                "fields": "pixelSize"
+            }
+        }
+    ]
+
+    # formatting request for longterm questions tab (child sheet) column widths
+    longterm_questions_columns = [
+        { # set 'question' width to 450px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 0,
+                    "endIndex": 1
+                },
+                "properties": {
+                    "pixelSize": 450
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set 'ai client' width to 200px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 1,
+                    "endIndex": 2
+                },
+                "properties": {
+                    "pixelSize": 200
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set 'response path' width to 300px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 2,
+                    "endIndex": 3
                 },
                 "properties": {
                     "pixelSize": 300
@@ -494,8 +554,10 @@ def format_tab(sheet_id, creds, tab_name):
         format_requests = master_columns
     elif tab_name == "headlines":
         format_requests = headlines_columns
-    elif tab_name == "questions":
-        format_requests = questions_columns
+    elif tab_name == "news questions":
+        format_requests = news_questions_columns
+    elif tab_name == "longterm questions":
+        format_requests = longterm_questions_columns
     else:
         raise ValueError("Invalid tab name given to format_tab().")
 
