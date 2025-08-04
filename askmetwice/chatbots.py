@@ -14,7 +14,7 @@ OPENAI_API_KEY = config.OPENAI_API_KEY
 GEMINI_API_KEY = config.GEMINI_API_KEY
 
 # loads ai clients
-PERPLEXITY_CLIENT = OpenAI(api_key=PERPLEXITY_API_KEY, base_url="https://api.perplexity.ai")
+PERPLEXITY_CLIENT = OpenAI(api_key = PERPLEXITY_API_KEY, base_url = "https://api.perplexity.ai")
 OPENAI_CLIENT = OpenAI(api_key = OPENAI_API_KEY)
 GEMINI_CLIENT = genai.Client(api_key = GEMINI_API_KEY)
 
@@ -40,10 +40,10 @@ def ask_perplexity(prompt, model = "sonar-pro"):
     
     # build dictionary result and return it
     result = {
-        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        'model': f"Perplexity {model}",
-        'prompt': prompt,
-        'response': response
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "model": f"Perplexity {model}",
+        "prompt": prompt,
+        "response": response
     }
     return result
 
@@ -63,16 +63,16 @@ def ask_openai(prompt, model = "gpt-4o"):
 
     # send prompt to client and return response message
     response = OPENAI_CLIENT.chat.completions.create(
-        model=model,
-        messages=messages,
+        model = model,
+        messages = messages,
     ).model_dump()
 
     # build dictionary result and return it
     result = {
-        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        'model': f"OpenAI {model}",
-        'prompt': prompt,
-        'response': response
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "model": f"OpenAI {model}",
+        "prompt": prompt,
+        "response": response
     }
     return result
 
@@ -89,12 +89,12 @@ def ask_gemini(prompt, model = "gemini-2.5-flash"):
     """
     # configure search tool
     grounding_tool = types.Tool(
-        google_search=types.GoogleSearch()
+        google_search = types.GoogleSearch()
     )
 
     # configure settings
     config = types.GenerateContentConfig(
-        tools=[grounding_tool]
+        tools = [grounding_tool]
     )
 
     # query client and save response
@@ -106,10 +106,10 @@ def ask_gemini(prompt, model = "gemini-2.5-flash"):
 
     # build dictionary result and return it
     result = {
-        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        'model': f"Google {model}",
-        'prompt': prompt,
-        'response': response
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "model": f"Google {model}",
+        "prompt": prompt,
+        "response": response
     }
     return result
 

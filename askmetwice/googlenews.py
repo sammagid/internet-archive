@@ -16,8 +16,8 @@ def split_titles(df):
     Splits a Google News headline ("[title] - [news outlet]") into separate columns.
 
     Args:
-        df (pandas.DataFrame): Dataset of news headlines, with headlines under 'title' column
-        and empty 'news outlet' column.
+        df (pandas.DataFrame): Dataset of news headlines, with headlines under "title" column
+        and empty "news outlet" column.
 
     Returns:
         None (modifies data in place).
@@ -48,7 +48,7 @@ def split_titles(df):
             # no hyphen found, no outlet
             return pd.Series([title, ""])
 
-    df[['title', 'news outlet']] = df['title'].apply(split_single_title)
+    df[["title", "news outlet"]] = df["title"].apply(split_single_title)
 
 def fetch_articles(host_lang, geo_loc, client_ed_id, archive_urls = True, separate_titles = True, article_limit = None):
     """
@@ -97,7 +97,7 @@ def fetch_articles(host_lang, geo_loc, client_ed_id, archive_urls = True, separa
 
     # separate titles from news outlet, if specified
     if separate_titles:
-        df.insert(2, 'news outlet', None)
+        df.insert(2, "news outlet", None)
         split_titles(df)
     
     return df

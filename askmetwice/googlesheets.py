@@ -11,13 +11,13 @@ from googleapiclient.errors import HttpError
 
 # note: if modifying scopes, delete the token.json file first
 SCOPES = [
-    'https://www.googleapis.com/auth/spreadsheets', # Google Sheets API
-    'https://www.googleapis.com/auth/drive' # Google Drive API
+    "https://www.googleapis.com/auth/spreadsheets", # Google Sheets API
+    "https://www.googleapis.com/auth/drive" # Google Drive API
 ]
 
 # paths to Google API keys
-CREDENTIALS_PATH = 'auth/google-credentials.json'
-TOKEN_PATH = 'auth/google-token.json'
+CREDENTIALS_PATH = "auth/google-credentials.json"
+TOKEN_PATH = "auth/google-token.json"
 
 def authenticate_gsheets(credentials_path, token_path):
     """
@@ -44,10 +44,10 @@ def authenticate_gsheets(credentials_path, token_path):
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
-            creds = flow.run_local_server(port=0)
+            creds = flow.run_local_server(port = 0)
 
         # save credentials for future runs
-        with open(token_path, 'w') as token:
+        with open(token_path, "w") as token:
             token.write(creds.to_json())
     
     return creds
@@ -67,18 +67,18 @@ def create_spreadsheet(creds, sheet_name, folder_id, public_access = False, tab_
         str: Spreadsheet ID for newly created spreadsheet.
     """
     try:
-        drive_service = build('drive', 'v3', credentials=creds)
+        drive_service = build("drive", "v3", credentials = creds)
 
         # build request for new sheet within folder
         file_metadata = {
-            'name': sheet_name,
-            'mimeType': 'application/vnd.google-apps.spreadsheet',
-            'parents': [folder_id]
+            "name": sheet_name,
+            "mimeType": "application/vnd.google-apps.spreadsheet",
+            "parents": [folder_id]
         }
 
         # create sheet
-        file = drive_service.files().create(body=file_metadata, fields='id, webViewLink').execute()
-        sheet_id = file.get('id')
+        file = drive_service.files().create(body = file_metadata, fields = "id, webViewLink").execute()
+        sheet_id = file.get("id")
         print(f"Created spreadsheet '{sheet_name}' at https://docs.google.com/spreadsheets/d/{sheet_id}.")
     
         if public_access:
@@ -114,7 +114,7 @@ def pd_to_sheet(sheet_id, creds, df, tab_name):
         None.
     """
     try:
-        service = build('sheets', 'v4', credentials = creds)
+        service = build("sheets", "v4", credentials = creds)
         sheet = service.spreadsheets()
 
         # convert df to list of lists
@@ -122,21 +122,21 @@ def pd_to_sheet(sheet_id, creds, df, tab_name):
 
         # add new sheet
         add_sheet_request = {
-            'requests': [{
-                'addSheet': {'properties': {'title': tab_name}}
+            "requests": [{
+                "addSheet": {"properties": {"title": tab_name}}
             }]
         }
         try:
             sheet.batchUpdate(spreadsheetId = sheet_id, body = add_sheet_request).execute()
             print(f"Created new tab '{tab_name}'.")
         except HttpError as e:
-            if 'already exists' in str(e):
+            if "already exists" in str(e):
                 print(f"Tab '{tab_name}' exists, skipping creation.")
             else:
                 raise
 
         # write dataframe values to sheet
-        body = {'values': values}
+        body = {"values": values}
         service.spreadsheets().values().update(
             spreadsheetId = sheet_id,
             range = f"{tab_name}!A1",
@@ -163,15 +163,15 @@ def append_row(sheet_id, creds, tab_name, row_values):
         None.
     """
     try:
-        service = build('sheets', 'v4', credentials=creds)
+        service = build("sheets", "v4", credentials = creds)
 
         # append values
         service.spreadsheets().values().append(
-            spreadsheetId=sheet_id,
-            range=f"{tab_name}!A1",
-            valueInputOption="RAW",
-            insertDataOption="INSERT_ROWS",
-            body={"values": [row_values]}
+            spreadsheetId = sheet_id,
+            range = f"{tab_name}!A1",
+            valueInputOption = "RAW",
+            insertDataOption = "INSERT_ROWS",
+            body = {"values": [row_values]}
         ).execute()
 
         print(f"Appended row to {tab_name}.")
@@ -193,14 +193,14 @@ def get_tab_id(sheet_id, creds, tab_name):
         int: The numeric ID for the given tab, or None if it does not exist.
     """
     try:
-        service = build('sheets', 'v4', credentials = creds)
+        service = build("sheets", "v4", credentials = creds)
         sheet = service.spreadsheets()
         spreadsheet = sheet.get(spreadsheetId = sheet_id).execute()
 
         # search for the tab
-        for s in spreadsheet['sheets']:
-            if s['properties']['title'] == tab_name:
-                return s['properties']['sheetId']
+        for s in spreadsheet["sheets"]:
+            if s["properties"]["title"] == tab_name:
+                return s["properties"]["sheetId"]
         return None
     
     except HttpError as err:
@@ -219,9 +219,9 @@ def delete_tab(sheet_id, creds, tab_name):
         None.
     """
     try:
-        service = build('sheets', 'v4', credentials=creds)
+        service = build("sheets", "v4", credentials = creds)
         sheet = service.spreadsheets()
-        spreadsheet = sheet.get(spreadsheetId=sheet_id).execute()
+        spreadsheet = sheet.get(spreadsheetId = sheet_id).execute()
 
         # get tab ID
         tab_id = get_tab_id(sheet_id, creds, tab_name)
@@ -241,7 +241,7 @@ def delete_tab(sheet_id, creds, tab_name):
         }
 
         # execute delete
-        sheet.batchUpdate(spreadsheetId=sheet_id, body=delete_request).execute()
+        sheet.batchUpdate(spreadsheetId = sheet_id, body = delete_request).execute()
         print(f"Successfully deleted tab '{tab_name}'")
 
     except HttpError as err:
@@ -275,9 +275,9 @@ def apply_formatting(sheet_id, creds, format_requests):
         None.
     """
     try:
-        service = build('sheets', 'v4', credentials = creds)
+        service = build("sheets", "v4", credentials = creds)
         sheet = service.spreadsheets()
-        sheet.batchUpdate(spreadsheetId=sheet_id, body={"requests": format_requests}).execute()
+        sheet.batchUpdate(spreadsheetId = sheet_id, body = {"requests": format_requests}).execute()
 
         # apply formatting
         print("Formatting requests successfully applied.")
@@ -303,7 +303,7 @@ def format_tab(sheet_id, creds, tab_name):
 
     # formatting request for master sheet column widths
     master_columns = [
-        { # set 'date' width to 120px
+        { # set "date" width to 120px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -317,7 +317,7 @@ def format_tab(sheet_id, creds, tab_name):
                 "fields": "pixelSize"
             }
         },
-        { # set 'dataset type' width to 100px
+        { # set "dataset type" width to 100px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -331,7 +331,7 @@ def format_tab(sheet_id, creds, tab_name):
                 "fields": "pixelSize"
             }
         },
-        { # set 'link to AMT dataset' width to 650
+        { # set "link to AMT dataset" width to 650
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -349,7 +349,7 @@ def format_tab(sheet_id, creds, tab_name):
 
     # formatting request for headlines tab (child sheet) column widths
     headlines_columns = [
-        { # set 'source' width to 100px
+        { # set "source" width to 100px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -363,7 +363,7 @@ def format_tab(sheet_id, creds, tab_name):
                 "fields": "pixelSize"
             }
         },
-        { # set 'title' width to 400px
+        { # set "title" width to 400px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -377,7 +377,7 @@ def format_tab(sheet_id, creds, tab_name):
                 "fields": "pixelSize"
             }
         },
-        { # set 'news outlet' width to 200px
+        { # set "news outlet" width to 200px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -391,7 +391,7 @@ def format_tab(sheet_id, creds, tab_name):
                 "fields": "pixelSize"
             }
         },
-        { # set 'url' width to 800px
+        { # set "url" width to 800px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -409,7 +409,7 @@ def format_tab(sheet_id, creds, tab_name):
 
     # formatting request for news questions tab (child sheet) column widths
     news_questions_columns = headlines_columns + [
-        { # set 'question' width to 450px
+        { # set "question" width to 450px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -423,7 +423,7 @@ def format_tab(sheet_id, creds, tab_name):
                 "fields": "pixelSize"
             }
         },
-        { # set 'ai client' width to 200px
+        { # set "ai client" width to 200px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -437,7 +437,7 @@ def format_tab(sheet_id, creds, tab_name):
                 "fields": "pixelSize"
             }
         },
-        { # set 'response path' width to 300px
+        { # set "response path" width to 300px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -455,7 +455,7 @@ def format_tab(sheet_id, creds, tab_name):
 
     # formatting request for longterm questions tab (child sheet) column widths
     longterm_questions_columns = [
-        { # set 'question' width to 450px
+        { # set "question" width to 450px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -469,7 +469,7 @@ def format_tab(sheet_id, creds, tab_name):
                 "fields": "pixelSize"
             }
         },
-        { # set 'ai client' width to 200px
+        { # set "ai client" width to 200px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -483,7 +483,7 @@ def format_tab(sheet_id, creds, tab_name):
                 "fields": "pixelSize"
             }
         },
-        { # set 'response path' width to 300px
+        { # set "response path" width to 300px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,

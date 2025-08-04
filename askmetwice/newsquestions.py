@@ -54,7 +54,7 @@ def generate_questions(headline, use_ai_questions):
         response = cb.ask_openai(prompt)
 
         # get just message out of response
-        message = response['response']['choices'][0]['message']['content']
+        message = response["response"]["choices"][0]["message"]["content"]
 
         # just in case, remove headers from message if exist
         message = message.replace("```python", "")
@@ -77,7 +77,7 @@ def add_questions(df, use_ai_questions):
     (right now "Tell me about this headline").
 
     Args:
-        df (pandas.DataFrame): Dataset of news headlines, with headlines under 'title' column.
+        df (pandas.DataFrame): Dataset of news headlines, with headlines under "title" column.
         use_ai_questions (boolean): Whether to include AI-generated questions in the question set.
 
     Returns:
@@ -95,7 +95,7 @@ def add_questions(df, use_ai_questions):
         # add a new row to resulting dataframe for each question
         for question in questions:
             row_dict = row.to_dict()
-            row_dict['question'] = question
+            row_dict["question"] = question
             result_rows.append(row_dict)
     
     # convert rows to dataframe and return
@@ -107,7 +107,7 @@ def ask_questions(df, chatbots, save_folder):
     JSON files, and returns a dataframe containing all previous data and the filepaths.
 
     Args:
-        df (pandas.DataFrame): A dataframe of questions to ask (in column 'question') along
+        df (pandas.DataFrame): A dataframe of questions to ask (in column "question") along
         with any other data to be passed through.
         chatbots (str[]): List of chatbot names to query (corresponding to a chatbot name in
         cb_functions).
@@ -115,7 +115,7 @@ def ask_questions(df, chatbots, save_folder):
     
     Returns:
         pandas.DataFrame: A new dataframe with questions answered in saved JSON files linked
-        in 'response path' column.
+        in "response path" column.
     """
     print(f"Answering questions about headlines (clients: {chatbots}).")
 
@@ -128,7 +128,7 @@ def ask_questions(df, chatbots, save_folder):
             raise ValueError("Invalid chatbot specified in ask_questions().")
 
     # make save file path
-    os.makedirs(save_folder, exist_ok=True)
+    os.makedirs(save_folder, exist_ok = True)
 
     # start a counter to make simple file names (AMT-News-2025-07-30-00000.json, etc.)
     counter = 0
@@ -154,16 +154,16 @@ def ask_questions(df, chatbots, save_folder):
                     json.dump(response, file)
                 # record path in resulting dataframe
                 row_dict = row.to_dict()
-                row_dict['ai client'] = response['model']
-                row_dict['response path'] = out_path
+                row_dict["ai client"] = response["model"]
+                row_dict["response path"] = out_path
                 result_rows.append(row_dict)
                 # increment counter
                 counter += 1
             except Exception as e:
                 print(f"Error in ask_questions: {e}")
                 row_dict = row.to_dict()
-                row_dict['ai client'] = chatbot # FIX
-                row_dict['response path'] = "error ocurred"
+                row_dict["ai client"] = chatbot # FIX
+                row_dict["response path"] = "error ocurred"
                 result_rows.append(row_dict)
     
     # convert rows to dataframe and return
@@ -177,7 +177,7 @@ if __name__ == "__main__":
     now = datetime.now()
 
     # fetch news articles from Google News
-    df = gn.fetch_articles('en-US', 'US', 'US:en', separate_titles = True, article_limit = MAX_ARTICLES)
+    df = gn.fetch_articles("en-US", "US", "US:en", separate_titles = True, article_limit = MAX_ARTICLES)
 
     # create new child sheet
     timestamp = now.strftime("%Y-%m-%d")

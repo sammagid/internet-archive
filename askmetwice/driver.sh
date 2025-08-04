@@ -4,7 +4,7 @@
 OUT_FOLDER=$(python3 -c "import config; print(config.OUT_FOLDER)")
 
 # get today's date and create output directory
-DATE=$(date '+%Y-%m-%d')
+DATE=$(date "+%Y-%m-%d")
 OUTPUT_DIR="$OUT_FOLDER/$DATE/logs"
 mkdir -p "$OUTPUT_DIR"
 

@@ -30,7 +30,7 @@ def load_questions(questions_path, question_limit):
     Returns:
         str[]: List of question strings.
     """
-    with open(questions_path, 'r', encoding='utf-8') as f:
+    with open(questions_path, "r", encoding = "utf-8") as f:
         questions = [line.strip() for line in f if line.strip()]
         if question_limit:
             questions = questions[:question_limit]
@@ -48,7 +48,7 @@ def answer_questions(questions, chatbots, save_folder):
     
     Returns:
         pandas.DataFrame: A new dataframe with questions answered in saved JSON files linked
-        in 'response path' column.
+        in "response path" column.
     """
     # map of ai chatbot names to their function calls
     cb_functions = cb.CB_FUNCTIONS
@@ -59,8 +59,8 @@ def answer_questions(questions, chatbots, save_folder):
             raise ValueError("Invalid chatbot specified in ask_questions().")
         
     # make save file path
-    os.makedirs(save_folder, exist_ok=True)
-        
+    os.makedirs(save_folder, exist_ok = True)
+
     # start a counter to make simple file names (AMT-News-2025-07-30-00000.json, etc.)
     counter = 0
 
@@ -79,13 +79,13 @@ def answer_questions(questions, chatbots, save_folder):
                 with open(out_path, "w") as file:
                     json.dump(response, file)
                 # record path in resulting dataframe
-                row_dict = {'question': question, 'ai client': chatbot, 'response path': out_path}
+                row_dict = {"question": question, "ai client": chatbot, "response path": out_path}
                 result_rows.append(row_dict)
                 # increment counter
                 counter += 1
             except Exception as e:
                 print(f"Error in answer_questions(): {e}")
-                row_dict = {'question': question, 'ai client': chatbot, 'response path': "error ocurred"}
+                row_dict = {"question": question, "ai client": chatbot, "response path": "error ocurred"}
                 result_rows.append(row_dict)
 
     # convert rows to dataframe and return
