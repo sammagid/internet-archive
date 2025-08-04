@@ -6,7 +6,19 @@ from datetime import datetime
 import pandas as pd
 from tqdm import tqdm
 
+import config
 import chatbots as cb
+import googlesheets as gs
+import googlenews as gn
+
+# config variables (see config.py for descriptions)
+CREDENTIALS_PATH = config.CREDENTIALS_PATH
+TOKEN_PATH = config.TOKEN_PATH
+DATA_FOLDER_ID = config.DATA_FOLDER_ID
+MASTER_SHEET_ID = config.MASTER_SHEET_ID
+OUT_FOLDER = config.OUT_FOLDER
+CHATBOTS = config.CHATBOTS
+MAX_ARTICLES = config.MAX_ARTICLES
 
 def generate_questions(headline, use_ai_questions):
     """
@@ -48,9 +60,13 @@ def generate_questions(headline, use_ai_questions):
         message = message.replace("```python", "")
         message = message.replace("```", "")
 
-        # evaluate as a python list and add to question_list
-        list_representation = ast.literal_eval(message)
-        question_list += list_representation
+        # attempt to evaluate as a python list and add to question_list
+        try:
+            list_representation = ast.literal_eval(message)
+            question_list += list_representation
+        except Exception as err:
+            # if failure, just use the basic question
+            print(f"Error evaluating question list in generate_questions(): {err}")
 
     return question_list
 
@@ -129,19 +145,59 @@ def ask_questions(df, chatbots, save_folder):
             #     return {"question": question, "testing": True, "model": "testing"}
             question = df.at[i, "question"]
             # ask chatbot question and save response as JSON
-            response = ask_chatbot_function(question)
-            now = datetime.now()
-            timestamp = now.strftime("%Y-%m-%d")
-            out_path = os.path.join(save_folder, f"AMT-News-{timestamp}-{counter:05d}.json")
-            with open(out_path, "w") as file:
-                json.dump(response, file)
-            # record path in resulting dataframe
-            row_dict = row.to_dict()
-            row_dict['ai client'] = response['model']
-            row_dict['response path'] = out_path
-            result_rows.append(row_dict)
-            # increment counter
-            counter += 1
+            try:
+                response = ask_chatbot_function(question)
+                now = datetime.now()
+                timestamp = now.strftime("%Y-%m-%d")
+                out_path = os.path.join(save_folder, f"AMT-News-{timestamp}-{counter:05d}.json")
+                with open(out_path, "w") as file:
+                    json.dump(response, file)
+                # record path in resulting dataframe
+                row_dict = row.to_dict()
+                row_dict['ai client'] = response['model']
+                row_dict['response path'] = out_path
+                result_rows.append(row_dict)
+                # increment counter
+                counter += 1
+            except Exception as e:
+                print(f"Error in ask_questions: {e}")
+                row_dict = row.to_dict()
+                row_dict['ai client'] = chatbot # FIX
+                row_dict['response path'] = "error ocurred"
+                result_rows.append(row_dict)
     
     # convert rows to dataframe and return
     return pd.DataFrame(result_rows)
+
+if __name__ == "__main__":
+    # authenticate Google API
+    creds = gs.authenticate_gsheets(CREDENTIALS_PATH, TOKEN_PATH)
+
+    # get current date object
+    now = datetime.now()
+
+    # fetch news articles from Google News
+    df = gn.fetch_articles('en-US', 'US', 'US:en', separate_titles = True, article_limit = MAX_ARTICLES)
+
+    # create new child sheet
+    timestamp = now.strftime("%Y-%m-%d")
+    child_sheet_name = f"AMT News {timestamp}"
+    child_sheet_id = gs.create_spreadsheet(creds, child_sheet_name, DATA_FOLDER_ID, public_access = True, tab_name = "headlines")
+    child_sheet_url = f"https://docs.google.com/spreadsheets/d/{child_sheet_id}/"
+
+    # append new row to master
+    gs.append_row(MASTER_SHEET_ID, creds, "master", [timestamp, "news", child_sheet_url])
+    gs.format_tab(MASTER_SHEET_ID, creds, "master")
+
+    # import data into "headlines" tab and format nicely
+    gs.pd_to_sheet(child_sheet_id, creds, df, "headlines")
+    gs.format_tab(child_sheet_id, creds, "headlines")
+
+    # generate questions dataframe, then answers dataframe
+    dfq = add_questions(df, use_ai_questions = True)
+    save_folder = os.path.join(OUT_FOLDER, now.strftime("%Y-%m-%d"))
+    dfqa = ask_questions(dfq, CHATBOTS, save_folder)
+
+    # import data into "questions" tab and nicely format
+    gs.pd_to_sheet(child_sheet_id, creds, dfqa, "news questions")
+    gs.format_tab(child_sheet_id, creds, "news questions")

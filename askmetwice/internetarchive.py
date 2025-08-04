@@ -25,7 +25,7 @@ def send_spn_request(access_key, secret_key, url):
         "url": url
     }
 
-    # send POST request and handle a bunch of possible request errors
+    # send POST request and handle a bunch of possible errors
     try:
         response = requests.post(endpoint, headers = headers, data = data, timeout = 30)
         response.raise_for_status()
@@ -35,7 +35,7 @@ def send_spn_request(access_key, secret_key, url):
     except requests.exceptions.Timeout:
         print("Request timed out in send_spn_request().")
         return None
-    except requests.exceptions.RequestException as err:
+    except Exception as err:
         print(f"Other error occurred in send_spn_request(): {err}.")
         return None
 
@@ -85,9 +85,6 @@ def retrieve_spn_url(access_key, secret_key, response, try_interval = 5, max_tri
                 archive_url = f"https://web.archive.org/web/{data["timestamp"]}/{data["original_url"]}"
                 print(f"Successful archive at {archive_url}.")
                 return archive_url
-            elif status == "error":
-                print(f"Error in archiving URL. See issue here: {status_url}.")
-                return None
             # wait before the next try
             time.sleep(try_interval)
         # return None if maximum tries exceeded
@@ -100,7 +97,7 @@ def retrieve_spn_url(access_key, secret_key, response, try_interval = 5, max_tri
     except requests.exceptions.Timeout:
         print("Request timed out in send_spn_request().")
         return None
-    except requests.exceptions.RequestException as err:
+    except Exception as err:
         print(f"Other error occurred in send_spn_request(): {err}.")
         return None
 
