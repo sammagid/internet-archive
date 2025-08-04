@@ -140,9 +140,6 @@ def ask_questions(df, chatbots, save_folder):
     for i, row in tqdm(df.iterrows(), total = len(df), desc = "questions"):
         for chatbot in chatbots:
             ask_chatbot_function = cb_functions[chatbot]
-            # OPTION: use dummy function for testing to speed up significantly
-            # def ask_chatbot_function(question):
-            #     return {"question": question, "testing": True, "model": "testing"}
             question = df.at[i, "question"]
             # ask chatbot question and save response as JSON
             try:
@@ -162,8 +159,8 @@ def ask_questions(df, chatbots, save_folder):
             except Exception as e:
                 print(f"Error in ask_questions: {e}")
                 row_dict = row.to_dict()
-                row_dict["ai client"] = chatbot # FIX
-                row_dict["response path"] = "error ocurred"
+                row_dict["ai client"] = f"ERROR w/ {chatbot}"
+                row_dict["response path"] = "an error ocurred"
                 result_rows.append(row_dict)
     
     # convert rows to dataframe and return

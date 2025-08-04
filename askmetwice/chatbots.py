@@ -12,11 +12,26 @@ import config
 PERPLEXITY_API_KEY = config.PERPLEXITY_API_KEY
 OPENAI_API_KEY = config.OPENAI_API_KEY
 GEMINI_API_KEY = config.GEMINI_API_KEY
+GROK_API_KEY = config.GROK_API_KEY
 
 # loads ai clients
 PERPLEXITY_CLIENT = OpenAI(api_key = PERPLEXITY_API_KEY, base_url = "https://api.perplexity.ai")
 OPENAI_CLIENT = OpenAI(api_key = OPENAI_API_KEY)
 GEMINI_CLIENT = genai.Client(api_key = GEMINI_API_KEY)
+GROK_CLIENT = OpenAI(api_key = GROK_API_KEY, base_url = "https://api.x.ai/v1")
+
+def ask_dummy(prompt):
+    """
+    Dummy function to speed up process in testing. Simulated a chatbot response
+    but returns nothing of use.
+
+    Args:
+        prompt (str): Any prompt.
+    
+    Returns:
+        dict: Dictionary with necessary metadata to make script run.
+    """
+    return {"question": prompt, "testing": True, "model": "testing"}
 
 def ask_perplexity(prompt, model = "sonar-pro"):
     """
@@ -113,9 +128,39 @@ def ask_gemini(prompt, model = "gemini-2.5-flash"):
     }
     return result
 
+def ask_grok(prompt, model = "grok-3"):
+    """
+    Asks a question of the Grok API client and returns the response.
+
+    Args:
+        prompt (string): Prompt for Grok client to answer.
+        model (string): Which Grok model to use.
+    
+    Returns:
+        dict: Dictionary representation of response from Grok, along with metadata.
+    """
+    # build the message (can also include a system prompt)
+    messages = [{"role": "user", "content": prompt}]
+
+    # send prompt to client and return response message
+    response = GROK_CLIENT.chat.completions.create(
+        model = model,
+        messages = messages,
+    ).model_dump()
+
+    # build dictionary result and return it
+    result = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "model": f"Grok {model}",
+        "prompt": prompt,
+        "response": response
+    }
+    return result
+
 # map of ai chatbot names to their function calls
 CB_FUNCTIONS = {
     "perplexity": ask_perplexity,
     "openai": ask_openai,
-    "gemini": ask_gemini
+    "gemini": ask_gemini,
+    "grok": ask_grok
 }
