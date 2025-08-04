@@ -184,11 +184,11 @@ if __name__ == "__main__":
 
     # append new row to master
     gs.append_row(MASTER_SHEET_ID, creds, "master", [timestamp, "news", child_sheet_url])
-    gs.format_tab(MASTER_SHEET_ID, creds, "master")
+    gs.format_tab(MASTER_SHEET_ID, creds, tab_name = "master", format_name = "master")
 
     # import data into "headlines" tab and format nicely
     gs.pd_to_sheet(child_sheet_id, creds, df, "headlines")
-    gs.format_tab(child_sheet_id, creds, "headlines")
+    gs.format_tab(child_sheet_id, creds, tab_name = "headlines", format_name = "headlines")
 
     # generate questions dataframe, then answers dataframe
     dfq = add_questions(df, use_ai_questions = True)
@@ -197,4 +197,4 @@ if __name__ == "__main__":
 
     # import data into "questions" tab and nicely format
     gs.pd_to_sheet(child_sheet_id, creds, dfqa, "news questions")
-    gs.format_tab(child_sheet_id, creds, "news questions")
+    gs.format_tab(child_sheet_id, creds, tab_name = "news questions", format_name = "news questions")

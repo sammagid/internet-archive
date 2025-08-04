@@ -285,7 +285,7 @@ def apply_formatting(sheet_id, creds, format_requests):
     except HttpError as err:
         print(f"ERROR: {err}")
 
-def format_tab(sheet_id, creds, tab_name):
+def format_tab(sheet_id, creds, tab_name, format_name):
     """
     Applies specific formatting for a given tab of a child (daily) dataset, including
     bold headers, text wrapping, and columns spaced for the given tab.
@@ -293,7 +293,9 @@ def format_tab(sheet_id, creds, tab_name):
     Args:
         sheet_id (str): The ID for the child Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
-        tab_name (str): Name of tab to format (currently "master", "headlines", or "questions").
+        tab_name (str): Name of tab to format.
+        format_name (str): Name of formatting type to apply (currently "master", "headlines", "news questions",
+        or "longterm questions").
     
     Returns:
         None.
@@ -549,17 +551,17 @@ def format_tab(sheet_id, creds, tab_name):
         }
     ]
 
-    # pick column formatting based on tab name
-    if tab_name == "master":
+    # pick formatting based on tab name
+    if format_name == "master":
         format_requests = master_columns
-    elif tab_name == "headlines":
+    elif format_name == "headlines":
         format_requests = headlines_columns
-    elif tab_name == "news questions":
+    elif format_name == "news questions":
         format_requests = news_questions_columns
-    elif tab_name == "longterm questions":
+    elif format_name == "longterm questions":
         format_requests = longterm_questions_columns
     else:
-        raise ValueError("Invalid tab name given to format_tab().")
+        raise ValueError("Invalid format name given to format_tab().")
 
     # add bold and text wrapping requests
     format_requests += bold_format
