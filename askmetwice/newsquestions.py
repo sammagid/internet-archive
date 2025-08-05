@@ -3,6 +3,9 @@ import os
 import json
 from datetime import datetime
 
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
 import pandas as pd
 from tqdm import tqdm
 
@@ -101,7 +104,7 @@ def add_questions(df, use_ai_questions):
     # convert rows to dataframe and return
     return pd.DataFrame(result_rows)
 
-def ask_questions(df, chatbots, save_folder):
+def ask_questions(df, chatbots, save_folder, max_workers = 10):
     """
     Asks a set of questions in a dataframe to a series of chatbots, saves their answers as
     JSON files, and returns a dataframe containing all previous data and the filepaths.
@@ -112,6 +115,7 @@ def ask_questions(df, chatbots, save_folder):
         chatbots (str[]): List of chatbot names to query (corresponding to a chatbot name in
         cb_functions).
         save_folder (str): Path to folder to save JSON responses.
+        max_workers (int): Maximum number of workers for threading.
     
     Returns:
         pandas.DataFrame: A new dataframe with questions answered in saved JSON files linked
@@ -133,38 +137,64 @@ def ask_questions(df, chatbots, save_folder):
     # start a counter to make simple file names (AMT-News-2025-07-30-00000.json, etc.)
     counter = 0
 
-    # initialize result as empty list of rows
-    result_rows = []
+    # initialize empty task list
+    tasks = []
 
-    # iterate through each question (with progress bar) and answer questions
-    for i, row in tqdm(df.iterrows(), total = len(df), desc = "questions"):
-        for chatbot in chatbots:
-            ask_chatbot_function = cb_functions[chatbot]
-            question = df.at[i, "question"]
-            # ask chatbot question and save response as JSON
-            try:
-                response = ask_chatbot_function(question)
-                now = datetime.now()
-                timestamp = now.strftime("%Y-%m-%d")
-                out_path = os.path.join(save_folder, f"AMT-News-{timestamp}-{counter:05d}.json")
-                with open(out_path, "w") as file:
-                    json.dump(response, file)
-                # record path in resulting dataframe
-                row_dict = row.to_dict()
-                row_dict["ai client"] = response["model"]
-                row_dict["response path"] = out_path
-                result_rows.append(row_dict)
-                # increment counter
+    # create threading locks for counter and chatbots (to avoid rate limiting)
+    counter_lock = threading.Lock()
+    locks = {bot: threading.Lock() for bot in chatbots}
+
+    # get timestamp
+    now = datetime.now()
+    timestamp = now.strftime("%Y-%m-%d")
+
+    # define a helper function for threading tasks
+    def ask_and_save(row, chatbot):
+        # access parent scope for counter
+        nonlocal counter
+        # ask chatbot question and save response as JSON
+        try:
+            question = row["question"]
+            ask_fn = cb_functions[chatbot]
+            # query each chatbot one at a time
+            with locks[chatbot]:
+                response = ask_fn(question)
+            # safely increment counter
+            with counter_lock:
+                count = counter
                 counter += 1
-            except Exception as e:
-                print(f"Error in ask_questions: {e}")
-                row_dict = row.to_dict()
-                row_dict["ai client"] = f"ERROR w/ {chatbot}"
-                row_dict["response path"] = "an error ocurred"
-                result_rows.append(row_dict)
+            # save response as JSON
+            out_path = os.path.join(save_folder, f"AMT-News-{timestamp}-{count:05d}.json")
+            with open(out_path, "w") as file:
+                json.dump(response, file)
+            # record path in a row and return
+            row_dict = row.to_dict()
+            row_dict["ai client"] = response["model"]
+            row_dict["response path"] = out_path
+            return row_dict
+        except Exception as e:
+            print(f"Error in ask_questions: {e}")
+            row_dict = row.to_dict()
+            row_dict["ai client"] = f"ERROR w/ {chatbot}"
+            row_dict["response path"] = "an error occurred"
+            return row_dict
+
+    # build task list
+    for _, row in df.iterrows():
+        row_dict = row.to_dict()
+        for chatbot in chatbots:
+            tasks.append((row_dict, chatbot))
+
+    # execute tasks in multiple threads
+    with ThreadPoolExecutor(max_workers = max_workers) as executor:
+        results = list(tqdm(
+            executor.map(lambda task: ask_and_save(*task), tasks),
+            total = len(tasks),
+            desc = "questions"
+        ))
     
     # convert rows to dataframe and return
-    return pd.DataFrame(result_rows)
+    return pd.DataFrame(results)
 
 if __name__ == "__main__":
     # authenticate Google API
@@ -198,3 +228,10 @@ if __name__ == "__main__":
     # import data into "questions" tab and nicely format
     gs.pd_to_sheet(child_sheet_id, creds, dfqa, "news questions")
     gs.format_tab(child_sheet_id, creds, tab_name = "news questions", format_name = "news questions")
+
+    # save backup CSV of data
+    backup_folder = os.path.join(save_folder, "datasets")
+    gs.save_backup_csv(df, backup_folder, f"{timestamp}-news-headlines.csv")
+    gs.save_backup_csv(dfqa, backup_folder, f"{timestamp}-news-questions.csv")
+
+    print("AMT News Questions workflow finished!")

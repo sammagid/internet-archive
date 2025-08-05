@@ -2,6 +2,9 @@ import os
 import json
 from datetime import datetime
 
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import pandas as pd
 from tqdm import tqdm
 
@@ -36,7 +39,7 @@ def load_questions(questions_path, question_limit):
             questions = questions[:question_limit]
     return questions
 
-def answer_questions(questions, chatbots, save_folder):
+def answer_questions(questions, chatbots, save_folder, max_workers = 10):
     """
     Takes a list of questions and answers them with several chatbots.
 
@@ -45,6 +48,7 @@ def answer_questions(questions, chatbots, save_folder):
         chatbots (str[]): List of chatbot names to query (corresponding to a chatbot name in
         cb_functions).
         save_folder (str): Path to folder to save JSON responses.
+        max_workers (int): Maximum number of workers for threading.
     
     Returns:
         pandas.DataFrame: A new dataframe with questions answered in saved JSON files linked
@@ -64,32 +68,58 @@ def answer_questions(questions, chatbots, save_folder):
     # start a counter to make simple file names (AMT-News-2025-07-30-00000.json, etc.)
     counter = 0
 
-    # initialize result as empty list of rows
-    result_rows = []
+    # initialize empty task list
+    tasks = []
 
-    for question in tqdm(questions):
-        for chatbot in chatbots:
-            ask_chatbot_function = cb_functions[chatbot]
-            try:
-                # ask chatbot question and save response as JSON
-                response = ask_chatbot_function(question)
-                now = datetime.now()
-                timestamp = now.strftime("%Y-%m-%d")
-                out_path = os.path.join(save_folder, f"AMT-LongTerm-{timestamp}-{counter:05d}.json")
-                with open(out_path, "w") as file:
-                    json.dump(response, file)
-                # record path in resulting dataframe
-                row_dict = {"question": question, "ai client": chatbot, "response path": out_path}
-                result_rows.append(row_dict)
-                # increment counter
+    # create threading locks for counter and chatbots (to avoid rate limiting)
+    counter_lock = threading.Lock()
+    locks = {bot: threading.Lock() for bot in chatbots}
+
+    # get timestamp
+    now = datetime.now()
+    timestamp = now.strftime("%Y-%m-%d")
+
+    # define a helper function for threading tasks
+    def ask_and_save(question, chatbot):
+        # access parent scope for counter
+        nonlocal counter
+        # ask chatbot question and save response as JSON
+        try:
+            ask_fn = cb_functions[chatbot]
+            # query each chatbot one at a time
+            with locks[chatbot]:
+                response = ask_fn(question)
+            # safely increment counter
+            with counter_lock:
+                count = counter
                 counter += 1
-            except Exception as e:
-                print(f"Error in answer_questions(): {e}")
-                row_dict = {"question": question, "ai client": chatbot, "response path": "error ocurred"}
-                result_rows.append(row_dict)
+            # save response as JSON
+            out_path = os.path.join(save_folder, f"AMT-LongTerm-{timestamp}-{count:05d}.json")
+            with open(out_path, "w") as file:
+                json.dump(response, file)
+            # record path in a row and return
+            row_dict = {"question": question, "ai client": response["model"], "response path": out_path}
+            return row_dict
+        except Exception as e:
+            print(f"Error in answer_questions(): {e}")
+            row_dict = {"question": question, "ai client": f"ERROR w/ {chatbot}", "response path": "an error ocurred"}
+            return row_dict
+
+    # build task list
+    for question in questions:
+        for chatbot in chatbots:
+            tasks.append((question, chatbot))
+
+    # execute tasks in multiple threads
+    with ThreadPoolExecutor(max_workers = max_workers) as executor:
+        results = list(tqdm(
+            executor.map(lambda task: ask_and_save(*task), tasks),
+            total = len(tasks),
+            desc = "questions"
+        ))
 
     # convert rows to dataframe and return
-    return pd.DataFrame(result_rows)
+    return pd.DataFrame(results)
 
 if __name__ == "__main__":
     # authenticate Google API
@@ -111,8 +141,14 @@ if __name__ == "__main__":
 
     # append new row to master
     gs.append_row(MASTER_SHEET_ID, creds, "master", [timestamp, "longterm", child_sheet_url])
-    gs.format_tab(MASTER_SHEET_ID, creds, "master")
+    gs.format_tab(MASTER_SHEET_ID, creds, tab_name = "master", format_name = "master")
 
     # import data into "questions" tab and nicely format
     gs.pd_to_sheet(child_sheet_id, creds, dfqa, "longterm questions")
-    gs.format_tab(child_sheet_id, creds, "longterm questions")
+    gs.format_tab(child_sheet_id, creds, tab_name = "longterm questions", format_name = "longterm questions")
+
+    # save backup CSV of data
+    backup_folder = os.path.join(save_folder, "datasets")
+    gs.save_backup_csv(dfqa, backup_folder, f"{timestamp}-longterm-questions.csv")
+
+    print("AMT Longterm Questions workflow finished!")
