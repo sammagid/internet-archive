@@ -1,5 +1,4 @@
 import os.path
-from datetime import datetime
 
 import pandas as pd
 
@@ -113,6 +112,11 @@ def pd_to_sheet(sheet_id, creds, df, tab_name):
     Returns:
         None.
     """
+    # deal with missing sheet_id if HTTP errors ocurred
+    if sheet_id is None:
+        print("ERROR: pd_to_sheet has a None sheet_id. Backup data is saved locally in the 'datasets' folder.")
+        return
+
     try:
         service = build("sheets", "v4", credentials = creds)
         sheet = service.spreadsheets()
@@ -162,6 +166,11 @@ def append_row(sheet_id, creds, tab_name, row_values):
     Returns:
         None.
     """
+    # deal with missing sheet_id if HTTP errors ocurred
+    if sheet_id is None:
+        print("ERROR: append_row has a None sheet_id.")
+        return
+
     try:
         service = build("sheets", "v4", credentials = creds)
 
@@ -192,6 +201,11 @@ def get_tab_id(sheet_id, creds, tab_name):
     Returns:
         int: The numeric ID for the given tab, or None if it does not exist.
     """
+    # deal with missing sheet_id if HTTP errors ocurred
+    if sheet_id is None:
+        print("ERROR: get_tab_id has a None sheet_id.")
+        return
+
     try:
         service = build("sheets", "v4", credentials = creds)
         sheet = service.spreadsheets()
@@ -218,6 +232,11 @@ def delete_tab(sheet_id, creds, tab_name):
     Returns:
         None.
     """
+    # deal with missing sheet_id if HTTP errors ocurred
+    if sheet_id is None:
+        print("ERROR: delete_tab has a None sheet_id.")
+        return
+
     try:
         service = build("sheets", "v4", credentials = creds)
         sheet = service.spreadsheets()
@@ -229,7 +248,7 @@ def delete_tab(sheet_id, creds, tab_name):
         # if tab does not exist, skip
         if tab_id is None:
             print(f"Tab '{tab_name}' does not exist, skipping delete.")
-            return
+            return None
         
         # build delete request
         delete_request = {
@@ -259,6 +278,11 @@ def create_tab(sheet_id, creds, tab_name):
     Returns:
         None.
     """
+    # deal with missing sheet_id if HTTP errors ocurred
+    if sheet_id is None:
+        print("ERROR: create_tab has a None sheet_id.")
+        return
+    
     empty_df = pd.DataFrame()
     pd_to_sheet(sheet_id, creds, empty_df, tab_name)
 
@@ -274,6 +298,11 @@ def apply_formatting(sheet_id, creds, format_requests):
     Returns:
         None.
     """
+    # deal with missing sheet_id if HTTP errors ocurred
+    if sheet_id is None:
+        print("ERROR: apply_formatting has a None sheet_id.")
+        return
+
     try:
         service = build("sheets", "v4", credentials = creds)
         sheet = service.spreadsheets()
@@ -569,3 +598,24 @@ def format_tab(sheet_id, creds, tab_name, format_name):
 
     # execute formatting request
     apply_formatting(sheet_id, creds, format_requests)
+
+def save_backup_csv(df, save_folder, filename):
+    """
+    Save a Pandas dataframe to a local CSV file as a backup in case of HTTP errors.
+    
+    Args:
+        df (pandas.DataFrame): The data to be saved locally.
+        save_folder (str): Path to the folder for the file to be saved.
+        filename (str): File name of the output CSV file (e.g. "out.csv")
+    
+    Returns:
+        None.
+    """
+    # create the directory, if not exist already
+    os.makedirs(save_folder, exist_ok = True)
+
+    # save df
+    out_path = os.path.join(save_folder, filename)
+    df.to_csv(out_path, index=False)
+
+    print(f"Backup dataset saved at {out_path}.")
