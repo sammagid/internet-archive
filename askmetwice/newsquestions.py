@@ -149,17 +149,17 @@ def ask_questions(df, chatbots, save_folder, max_workers = 10):
     timestamp = now.strftime("%Y-%m-%d")
 
     # define a helper function for threading tasks
-    def ask_and_save(row, chatbot):
+    def ask_and_save(row_dict, chatbot):
         # access parent scope for counter
         nonlocal counter
         # ask chatbot question and save response as JSON
         try:
-            question = row["question"]
+            question = row_dict["question"]
             ask_fn = cb_functions[chatbot]
             # query each chatbot one at a time
             with locks[chatbot]:
                 response = ask_fn(question)
-            # safely increment counter
+            # safely increment counter and make path name
             with counter_lock:
                 count = counter
                 counter += 1
@@ -167,17 +167,17 @@ def ask_questions(df, chatbots, save_folder, max_workers = 10):
             out_path = os.path.join(save_folder, f"AMT-News-{timestamp}-{count:05d}.json")
             with open(out_path, "w") as file:
                 json.dump(response, file)
-            # record path in a row and return
-            row_dict = row.to_dict()
-            row_dict["ai client"] = response["model"]
-            row_dict["response path"] = out_path
-            return row_dict
+            # record path in a row (duplicated from original) and return
+            result_dict = row_dict.copy()
+            result_dict["ai client"] = response["model"]
+            result_dict["response path"] = out_path
+            return result_dict
         except Exception as e:
             print(f"Error in ask_questions: {e}")
-            row_dict = row.to_dict()
-            row_dict["ai client"] = f"ERROR w/ {chatbot}"
-            row_dict["response path"] = "an error occurred"
-            return row_dict
+            result_dict = row_dict.copy()
+            result_dict["ai client"] = f"ERROR w/ {chatbot}"
+            result_dict["response path"] = "an error occurred"
+            return result_dict
 
     # build task list
     for _, row in df.iterrows():
