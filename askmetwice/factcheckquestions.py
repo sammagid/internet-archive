@@ -82,7 +82,7 @@ def load_claims(arango_host, arango_username, arango_password, database, collect
 
     # shorten list of claims if specified
     if claim_limit:
-        filtered_results = filtered_results[:article_limit]
+        filtered_results = filtered_results[:claim_limit]
     print(f"Successfully fetched {len(filtered_results)} claims!")
     
     # build the rows with relevant metadata
