@@ -72,14 +72,14 @@ def retrieve_spn_url(access_key, secret_key, response, try_interval = 5, max_tri
     # get status data, catch errors
     try:
         # extract status ID to build request url
-        status_id = response.json()["job_id"]
+        status_id = response.json()["job_id"] # if doesn't exist, error will be handled
         status_url = f"https://web.archive.org/save/status/{status_id}"
 
         for attempt in range(max_tries):
             r = requests.get(status_url, headers = headers, timeout = 30)
             r.raise_for_status()
             data = r.json()
-            status = data["status"]
+            status = data.get("status")
             if status == "success":
                 # build the final archive URL
                 archive_url = f"https://web.archive.org/web/{data["timestamp"]}/{data["original_url"]}"

@@ -56,20 +56,19 @@ def generate_questions(headline, use_ai_questions):
         # query AI chatbot for a list of natural questions
         response = cb.ask_openai(prompt)
 
-        # get just message out of response
-        message = response["response"]["choices"][0]["message"]["content"]
-
-        # just in case, remove headers from message if exist
-        message = message.replace("```python", "")
-        message = message.replace("```", "")
-
-        # attempt to evaluate as a python list and add to question_list
+        # attempt to get message and evaluate, handling errors
         try:
+            # get message
+            message = response["response"]["choices"][0]["message"]["content"]
+            # just in case, remove headers from message if exist
+            message = message.replace("```python", "")
+            message = message.replace("```", "")
+            # evaluate as python list and add to question_list
             list_representation = ast.literal_eval(message)
             question_list += list_representation
         except Exception as err:
             # if failure, just use the basic question
-            print(f"Error evaluating question list in generate_questions(): {err}")
+            print(f"Error in generating question list in generate_questions(): {err}")
 
     return question_list
 

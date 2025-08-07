@@ -210,9 +210,9 @@ def get_tab_id(sheet_id, creds, tab_name):
         spreadsheet = sheet.get(spreadsheetId = sheet_id).execute()
 
         # search for the tab
-        for s in spreadsheet["sheets"]:
-            if s["properties"]["title"] == tab_name:
-                return s["properties"]["sheetId"]
+        for s in spreadsheet.get("sheets"):
+            if s.get("properties").get("title") == tab_name:
+                return s.get("properties").get("sheetId")
         return None
     
     except HttpError as err:
