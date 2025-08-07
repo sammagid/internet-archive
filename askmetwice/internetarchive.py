@@ -68,13 +68,13 @@ def retrieve_spn_url(access_key, secret_key, response, try_interval = 5, max_tri
         "Accept": "application/json",
         "Authorization": f"LOW {access_key}:{secret_key}"
     }
-    
-    # extract status ID to build request url
-    status_id = response.json()["job_id"]
-    status_url = f"https://web.archive.org/save/status/{status_id}"
 
     # get status data, catch errors
     try:
+        # extract status ID to build request url
+        status_id = response.json()["job_id"]
+        status_url = f"https://web.archive.org/save/status/{status_id}"
+
         for attempt in range(max_tries):
             r = requests.get(status_url, headers = headers, timeout = 30)
             r.raise_for_status()
