@@ -15,8 +15,8 @@ import googlesheets as gs
 import googlenews as gn
 
 # config variables (see config.py for descriptions)
-CREDENTIALS_PATH = config.CREDENTIALS_PATH
-TOKEN_PATH = config.TOKEN_PATH
+GOOGLE_CREDENTIALS_PATH = config.GOOGLE_CREDENTIALS_PATH
+GOOGLE_TOKEN_PATH = config.GOOGLE_TOKEN_PATH
 DATA_FOLDER_ID = config.DATA_FOLDER_ID
 MASTER_SHEET_ID = config.MASTER_SHEET_ID
 OUT_FOLDER = config.OUT_FOLDER
@@ -198,7 +198,7 @@ def ask_questions(df, chatbots, save_folder, max_workers = 10):
 
 if __name__ == "__main__":
     # authenticate Google API
-    creds = gs.authenticate_gsheets(CREDENTIALS_PATH, TOKEN_PATH)
+    creds = gs.authenticate_gsheets(GOOGLE_CREDENTIALS_PATH, GOOGLE_TOKEN_PATH)
 
     # get current date object
     now = datetime.now()
@@ -225,7 +225,7 @@ if __name__ == "__main__":
     save_folder = os.path.join(OUT_FOLDER, now.strftime("%Y-%m-%d"))
     dfqa = ask_questions(dfq, CHATBOTS, save_folder)
 
-    # import data into "questions" tab and nicely format
+    # import data into "news questions" tab and nicely format
     gs.pd_to_sheet(child_sheet_id, creds, dfqa, "news questions")
     gs.format_tab(child_sheet_id, creds, tab_name = "news questions", format_name = "news questions")
 
