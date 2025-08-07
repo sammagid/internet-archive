@@ -19,6 +19,10 @@ python3 -u newsquestions.py > "$OUTPUT_DIR/newsquestions_$DATE.log" 2>&1
 echo "Running longtermquestions.py..."
 python3 -u longtermquestions.py > "$OUTPUT_DIR/longtermquestions_$DATE.log" 2>&1
 
+# run AMT Fact Check Questions
+echo "Running factcheckquestions.py..."
+python3 -u factcheckquestions.py > "$OUTPUT_DIR/factcheckquestions_$DATE.log" 2>&1
+
 # end timer and calculate elapsed time
 END_TIME=$(date +%s)
 ELAPSED_TIME=$((END_TIME - START_TIME))
