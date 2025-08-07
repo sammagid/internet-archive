@@ -7,3 +7,4 @@ protobuf
 Requests
 tqdm
 google-genai
+langid
