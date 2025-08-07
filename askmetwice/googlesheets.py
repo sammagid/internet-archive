@@ -8,15 +8,13 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+import config
+
 # note: if modifying scopes, delete the token.json file first
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets", # Google Sheets API
     "https://www.googleapis.com/auth/drive" # Google Drive API
 ]
-
-# paths to Google API keys
-CREDENTIALS_PATH = "auth/google-credentials.json"
-TOKEN_PATH = "auth/google-token.json"
 
 def authenticate_gsheets(credentials_path, token_path):
     """
@@ -530,6 +528,140 @@ def format_tab(sheet_id, creds, tab_name, format_name):
         }
     ]
 
+    # formatting request for claims tab (child sheet) column widths
+    claims_columns = [
+        { # set "source" width to 120px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 0,
+                    "endIndex": 1
+                },
+                "properties": {
+                    "pixelSize": 120
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set "claim" width to 500px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 1,
+                    "endIndex": 2
+                },
+                "properties": {
+                    "pixelSize": 500
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set "lang" width to 50px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 2,
+                    "endIndex": 3
+                },
+                "properties": {
+                    "pixelSize": 50
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set "date published" width to 120px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 3,
+                    "endIndex": 4
+                },
+                "properties": {
+                    "pixelSize": 120
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set "appearance url" width to 400px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 4,
+                    "endIndex": 5
+                },
+                "properties": {
+                    "pixelSize": 400
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set "context url" width to 400px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 5,
+                    "endIndex": 6
+                },
+                "properties": {
+                    "pixelSize": 400
+                },
+                "fields": "pixelSize"
+            }
+        }
+    ]
+
+    # formatting request for claim questions tab (child sheet) column widths
+    claim_questions_columns = claims_columns + [
+        { # set "question" width to 450px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 6,
+                    "endIndex": 7
+                },
+                "properties": {
+                    "pixelSize": 450
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set "ai client" width to 200px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 7,
+                    "endIndex": 8
+                },
+                "properties": {
+                    "pixelSize": 200
+                },
+                "fields": "pixelSize"
+            }
+        },
+        { # set "response path" width to 300px
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": tab_id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 8,
+                    "endIndex": 9
+                },
+                "properties": {
+                    "pixelSize": 300
+                },
+                "fields": "pixelSize"
+            }
+        }
+    ]
+
     # formatting request for bold headers and non-bold body
     bold_format = [
         { # make headers bold
@@ -589,6 +721,10 @@ def format_tab(sheet_id, creds, tab_name, format_name):
         format_requests = news_questions_columns
     elif format_name == "longterm questions":
         format_requests = longterm_questions_columns
+    elif format_name == "claims":
+        format_requests = claims_columns
+    elif format_name == "claim questions":
+        format_requests = claim_questions_columns
     else:
         raise ValueError("Invalid format name given to format_tab().")
 
