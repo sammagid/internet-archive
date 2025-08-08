@@ -11,13 +11,13 @@ DATE=$(date "+%Y-%m-%d")
 OUTPUT_DIR="$OUT_FOLDER/$DATE/logs"
 mkdir -p "$OUTPUT_DIR"
 
-# run AMT News Questions
-echo "Running newsquestions.py..."
-python3 -u newsquestions.py > "$OUTPUT_DIR/newsquestions_$DATE.log" 2>&1
-
 # run AMT Longterm Questions
 echo "Running longtermquestions.py..."
 python3 -u longtermquestions.py > "$OUTPUT_DIR/longtermquestions_$DATE.log" 2>&1
+
+# run AMT News Questions
+echo "Running newsquestions.py..."
+python3 -u newsquestions.py > "$OUTPUT_DIR/newsquestions_$DATE.log" 2>&1
 
 # run AMT Fact Check Questions
 echo "Running factcheckquestions.py..."
