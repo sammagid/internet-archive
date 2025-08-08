@@ -16,9 +16,9 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive" # Google Drive API
 ]
 
-def authenticate_gsheets(credentials_path, token_path):
+def authenticate(credentials_path, token_path):
     """
-    Loads credentials for Google Sheets API. Tries to load from token_path if
+    Loads credentials for Google Sheets/Drive APIs. Tries to load from token_path if
     exists, otherwise generates new token using credential_path.
 
     Args:
@@ -88,8 +88,8 @@ def create_spreadsheet(creds, sheet_name, folder_id, public_access = False, tab_
         
         # if tab name specified, create it and delete the default "Sheet1" tab
         if tab_name:
-            create_tab(sheet_id, creds, tab_name)
-            delete_tab(sheet_id, creds, "Sheet1")
+            create_tab(creds, sheet_id, tab_name)
+            delete_tab(creds, sheet_id, "Sheet1")
 
         # return the ID
         return sheet_id
@@ -97,13 +97,13 @@ def create_spreadsheet(creds, sheet_name, folder_id, public_access = False, tab_
     except HttpError as err:
         print(f"ERROR: {err}")
 
-def pd_to_sheet(sheet_id, creds, df, tab_name):
+def pd_to_sheet(creds, sheet_id, df, tab_name):
     """
     Writes a Pandas Dataframe of data to a tab within a Google Sheet, creating tab if nonexistent.
 
     Args:
-        sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         df (Pandas.DataFrame): Data to write.
         tab_name (str): Name of tab to write to (creates new tab if doesn't exist).
     
@@ -151,13 +151,13 @@ def pd_to_sheet(sheet_id, creds, df, tab_name):
     except HttpError as err:
         print(f"ERROR: {err}")
 
-def append_row(sheet_id, creds, tab_name, row_values):
+def append_row(creds, sheet_id, tab_name, row_values):
     """
     Appends a row to an already existing tab within a sheet.
 
     Args:
-        sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         tab_name (str): The name of the target tab to append data to.
         row_values (list): List of values to append.
     
@@ -187,13 +187,13 @@ def append_row(sheet_id, creds, tab_name, row_values):
         print(f"ERROR: {err}")
     
 
-def get_tab_id(sheet_id, creds, tab_name):
+def get_tab_id(creds, sheet_id, tab_name):
     """
     Returns the numeric tab ID of a given tab name in a sheet.
 
     Args:
-        sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         tab_name (str): The name of the target tab to identify.
     
     Returns:
@@ -218,13 +218,13 @@ def get_tab_id(sheet_id, creds, tab_name):
     except HttpError as err:
         print(f"ERROR: {err}")
 
-def delete_tab(sheet_id, creds, tab_name):
+def delete_tab(creds, sheet_id, tab_name):
     """
     Deletes a given tab within a Google Sheet.
 
     Args:
-        sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         tab_name (str): The name of the target tab to delete.
     
     Returns:
@@ -241,7 +241,7 @@ def delete_tab(sheet_id, creds, tab_name):
         spreadsheet = sheet.get(spreadsheetId = sheet_id).execute()
 
         # get tab ID
-        tab_id = get_tab_id(sheet_id, creds, tab_name)
+        tab_id = get_tab_id(creds, sheet_id, tab_name)
 
         # if tab does not exist, skip
         if tab_id is None:
@@ -264,13 +264,13 @@ def delete_tab(sheet_id, creds, tab_name):
     except HttpError as err:
         print(f"ERROR: {err}")
 
-def create_tab(sheet_id, creds, tab_name):
+def create_tab(creds, sheet_id, tab_name):
     """
     Creates a named tab within a given Google Sheet.
 
     Args:
-        sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         tab_name (str): The name of the tab to create.
     
     Returns:
@@ -282,15 +282,15 @@ def create_tab(sheet_id, creds, tab_name):
         return
     
     empty_df = pd.DataFrame()
-    pd_to_sheet(sheet_id, creds, empty_df, tab_name)
+    pd_to_sheet(creds, sheet_id, empty_df, tab_name)
 
-def apply_formatting(sheet_id, creds, format_requests):
+def apply_formatting(creds, sheet_id, format_requests):
     """
     Applies a list of formatting requests to a given tab in a sheet.
 
     Args:
-        sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         format_requests (dict[]): A list of formatting requests to be applied to the target tab (specified in request).
     
     Returns:
@@ -312,14 +312,14 @@ def apply_formatting(sheet_id, creds, format_requests):
     except HttpError as err:
         print(f"ERROR: {err}")
 
-def format_tab(sheet_id, creds, tab_name, format_name):
+def format_tab(creds, sheet_id, tab_name, format_name):
     """
     Applies specific formatting for a given tab of a child (daily) dataset, including
     bold headers, text wrapping, and columns spaced for the given tab.
 
     Args:
-        sheet_id (str): The ID for the child Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        sheet_id (str): The ID for the child Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         tab_name (str): Name of tab to format.
         format_name (str): Name of formatting type to apply (currently "master", "headlines", "news questions",
         or "longterm questions").
@@ -328,7 +328,7 @@ def format_tab(sheet_id, creds, tab_name, format_name):
         None.
     """
     # get numeric tab ID (needed for formatting request)
-    tab_id = get_tab_id(sheet_id, creds, tab_name)
+    tab_id = get_tab_id(creds, sheet_id, tab_name)
 
     # formatting request for master sheet column widths
     master_columns = [
@@ -733,7 +733,7 @@ def format_tab(sheet_id, creds, tab_name, format_name):
     format_requests += text_wrapping
 
     # execute formatting request
-    apply_formatting(sheet_id, creds, format_requests)
+    apply_formatting(creds, sheet_id, format_requests)
 
 def save_backup_csv(df, save_folder, filename):
     """

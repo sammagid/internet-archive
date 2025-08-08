@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 import config
 import chatbots as cb
-import googlesheets as gs
+import googledrive as gd
 
 # config variables (see config.py for descriptions)
 GOOGLE_CREDENTIALS_PATH = config.GOOGLE_CREDENTIALS_PATH
@@ -123,7 +123,7 @@ def answer_questions(questions, chatbots, save_folder, max_workers = 10):
 
 if __name__ == "__main__":
     # authenticate Google API
-    creds = gs.authenticate_gsheets(GOOGLE_CREDENTIALS_PATH, GOOGLE_TOKEN_PATH)
+    creds = gd.authenticate(GOOGLE_CREDENTIALS_PATH, GOOGLE_TOKEN_PATH)
 
     # get current date object
     now = datetime.now()
@@ -136,19 +136,19 @@ if __name__ == "__main__":
     # create new sheet for child dataset
     timestamp = now.strftime("%Y-%m-%d")
     child_sheet_name = f"AMT Long Term Questions {timestamp}"
-    child_sheet_id = gs.create_spreadsheet(creds, child_sheet_name, DATA_FOLDER_ID, public_access = True, tab_name = "longterm questions")
+    child_sheet_id = gd.create_spreadsheet(creds, child_sheet_name, DATA_FOLDER_ID, public_access = True, tab_name = "longterm questions")
     child_sheet_url = f"https://docs.google.com/spreadsheets/d/{child_sheet_id}/"
 
     # append new row to master
-    gs.append_row(MASTER_SHEET_ID, creds, "master", [timestamp, "longterm", child_sheet_url])
-    gs.format_tab(MASTER_SHEET_ID, creds, tab_name = "master", format_name = "master")
+    gd.append_row(creds, MASTER_SHEET_ID, "master", [timestamp, "longterm", child_sheet_url])
+    gd.format_tab(creds, MASTER_SHEET_ID, tab_name = "master", format_name = "master")
 
     # import data into "questions" tab and nicely format
-    gs.pd_to_sheet(child_sheet_id, creds, dfqa, "longterm questions")
-    gs.format_tab(child_sheet_id, creds, tab_name = "longterm questions", format_name = "longterm questions")
+    gd.pd_to_sheet(creds, child_sheet_id, dfqa, "longterm questions")
+    gd.format_tab(creds, child_sheet_id, tab_name = "longterm questions", format_name = "longterm questions")
 
     # save backup CSV of data
     backup_folder = os.path.join(save_folder, "datasets")
-    gs.save_backup_csv(dfqa, backup_folder, f"{timestamp}-longterm-questions.csv")
+    gd.save_backup_csv(dfqa, backup_folder, f"{timestamp}-longterm-questions.csv")
 
     print("AMT Longterm Questions workflow finished!")

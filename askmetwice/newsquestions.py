@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 import config
 import chatbots as cb
-import googlesheets as gs
+import googledrive as gd
 import googlenews as gn
 
 # config variables (see config.py for descriptions)
@@ -197,7 +197,7 @@ def ask_questions(df, chatbots, save_folder, max_workers = 10):
 
 if __name__ == "__main__":
     # authenticate Google API
-    creds = gs.authenticate_gsheets(GOOGLE_CREDENTIALS_PATH, GOOGLE_TOKEN_PATH)
+    creds = gd.authenticate(GOOGLE_CREDENTIALS_PATH, GOOGLE_TOKEN_PATH)
 
     # get current date object
     now = datetime.now()
@@ -208,16 +208,16 @@ if __name__ == "__main__":
     # create new child sheet
     timestamp = now.strftime("%Y-%m-%d")
     child_sheet_name = f"AMT News {timestamp}"
-    child_sheet_id = gs.create_spreadsheet(creds, child_sheet_name, DATA_FOLDER_ID, public_access = True, tab_name = "headlines")
+    child_sheet_id = gd.create_spreadsheet(creds, child_sheet_name, DATA_FOLDER_ID, public_access = True, tab_name = "headlines")
     child_sheet_url = f"https://docs.google.com/spreadsheets/d/{child_sheet_id}/"
 
     # append new row to master
-    gs.append_row(MASTER_SHEET_ID, creds, "master", [timestamp, "news", child_sheet_url])
-    gs.format_tab(MASTER_SHEET_ID, creds, tab_name = "master", format_name = "master")
+    gd.append_row(creds, MASTER_SHEET_ID, "master", [timestamp, "news", child_sheet_url])
+    gd.format_tab(creds, MASTER_SHEET_ID, tab_name = "master", format_name = "master")
 
     # import data into "headlines" tab and format nicely
-    gs.pd_to_sheet(child_sheet_id, creds, df, "headlines")
-    gs.format_tab(child_sheet_id, creds, tab_name = "headlines", format_name = "headlines")
+    gd.pd_to_sheet(creds, child_sheet_id, df, "headlines")
+    gd.format_tab(creds, child_sheet_id, tab_name = "headlines", format_name = "headlines")
 
     # generate questions dataframe, then answers dataframe
     dfq = add_questions(df, use_ai_questions = True)
@@ -225,12 +225,12 @@ if __name__ == "__main__":
     dfqa = ask_questions(dfq, CHATBOTS, save_folder)
 
     # import data into "news questions" tab and nicely format
-    gs.pd_to_sheet(child_sheet_id, creds, dfqa, "news questions")
-    gs.format_tab(child_sheet_id, creds, tab_name = "news questions", format_name = "news questions")
+    gd.pd_to_sheet(creds, child_sheet_id, dfqa, "news questions")
+    gd.format_tab(creds, child_sheet_id, tab_name = "news questions", format_name = "news questions")
 
     # save backup CSV of data
     backup_folder = os.path.join(save_folder, "datasets")
-    gs.save_backup_csv(df, backup_folder, f"{timestamp}-news-headlines.csv")
-    gs.save_backup_csv(dfqa, backup_folder, f"{timestamp}-news-questions.csv")
+    gd.save_backup_csv(df, backup_folder, f"{timestamp}-news-headlines.csv")
+    gd.save_backup_csv(dfqa, backup_folder, f"{timestamp}-news-questions.csv")
 
     print("AMT News Questions workflow finished!")
