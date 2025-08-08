@@ -15,11 +15,12 @@ import googledrive as gd
 # config variables (see config.py for descriptions)
 GOOGLE_CREDENTIALS_PATH = config.GOOGLE_CREDENTIALS_PATH
 GOOGLE_TOKEN_PATH = config.GOOGLE_TOKEN_PATH
-DATA_FOLDER_ID = config.DATA_FOLDER_ID
+DATASET_FOLDER_ID = config.DATASET_FOLDER_ID
 MASTER_SHEET_ID = config.MASTER_SHEET_ID
 LT_QUESTIONS_SHEET_ID = config.LT_QUESTIONS_SHEET_ID
 MAX_LT_QUESTIONS = config.MAX_LT_QUESTIONS
 OUT_FOLDER = config.OUT_FOLDER
+JSON_FOLDER_ID = config.JSON_FOLDER_ID
 CHATBOTS = config.CHATBOTS
 
 def load_questions(creds, question_sheet_id, question_tab_name, question_limit = None):
@@ -48,7 +49,7 @@ def load_questions(creds, question_sheet_id, question_tab_name, question_limit =
 
     return questions
 
-def answer_questions(questions, chatbots, save_folder, max_workers = 10):
+def answer_questions(questions, chatbots, save_folder, creds, gdrive_save_id, max_workers = 10):
     """
     Takes a list of questions and answers them with several chatbots.
 
@@ -57,6 +58,9 @@ def answer_questions(questions, chatbots, save_folder, max_workers = 10):
         chatbots (str[]): List of chatbot names to query (corresponding to a chatbot name in
         cb_functions).
         save_folder (str): Path to folder to save JSON responses.
+        creds (google.oauth2.credentials.Credentials): Authenticated Google API credentials.
+        gdrive_save_id (str): ID for Google Drive folder to save to (i.e.
+        https://drive.google.com/drive/u/0/folders/[FOLDER_ID]).
         max_workers (int): Maximum number of workers for threading.
     
     Returns:
@@ -102,16 +106,20 @@ def answer_questions(questions, chatbots, save_folder, max_workers = 10):
             with counter_lock:
                 count = counter
                 counter += 1
-            # save response as JSON
+            # save response as JSON and upload to Google Drive folder
             out_path = os.path.join(save_folder, f"AMT-LongTerm-{timestamp}-{count:05d}.json")
             with open(out_path, "w") as file:
                 json.dump(response, file)
+            save_url = gd.upload_file(creds, gdrive_save_id, out_path)
+            # error message for url if missing
+            if save_url == "":
+                save_url = "error creating url"
             # record path in a row and return
-            row_dict = {"question": question, "ai client": response["model"], "response path": out_path}
+            row_dict = {"question": question, "ai client": response["model"], "response url": save_url}
             return row_dict
         except Exception as e:
             print(f"Error in answer_questions(): {e}")
-            row_dict = {"question": question, "ai client": f"ERROR w/ {chatbot}", "response path": "an error ocurred"}
+            row_dict = {"question": question, "ai client": f"ERROR w/ {chatbot}", "response url": "an error ocurred"}
             return row_dict
 
     # build task list
@@ -137,15 +145,18 @@ if __name__ == "__main__":
     # get current date object
     now = datetime.now()
 
+    # create local and Google Drive output folders, if necessary
+    save_folder = os.path.join(OUT_FOLDER, now.strftime("%Y-%m-%d"))
+    gdrive_save_id = gd.create_folder(creds, JSON_FOLDER_ID, timestamp)
+
     # fetch longterm questions, ask, and put into pandas df
     questions = load_questions(creds, LT_QUESTIONS_SHEET_ID, "questions", MAX_LT_QUESTIONS)
-    save_folder = os.path.join(OUT_FOLDER, now.strftime("%Y-%m-%d"))
-    dfqa = answer_questions(questions, CHATBOTS, save_folder)
+    dfqa = answer_questions(questions, CHATBOTS, save_folder, creds, gdrive_save_id)
 
     # create new sheet for child dataset
     timestamp = now.strftime("%Y-%m-%d")
-    child_sheet_name = f"AMT Long Term Questions {timestamp}"
-    child_sheet_id = gd.create_spreadsheet(creds, child_sheet_name, DATA_FOLDER_ID, public_access = True, tab_name = "longterm questions")
+    child_sheet_name = f"AMT Long Term {timestamp}"
+    child_sheet_id = gd.create_spreadsheet(creds, child_sheet_name, DATASET_FOLDER_ID, public_access = True, tab_name = "longterm questions")
     child_sheet_url = f"https://docs.google.com/spreadsheets/d/{child_sheet_id}/"
 
     # append new row to master

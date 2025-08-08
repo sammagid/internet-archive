@@ -17,9 +17,10 @@ import googledrive as gd
 # config variables (see config.py for descriptions)
 GOOGLE_CREDENTIALS_PATH = config.GOOGLE_CREDENTIALS_PATH
 GOOGLE_TOKEN_PATH = config.GOOGLE_TOKEN_PATH
-DATA_FOLDER_ID = config.DATA_FOLDER_ID
+DATASET_FOLDER_ID = config.DATASET_FOLDER_ID
 MASTER_SHEET_ID = config.MASTER_SHEET_ID
 OUT_FOLDER = config.OUT_FOLDER
+JSON_FOLDER_ID = config.JSON_FOLDER_ID
 CHATBOTS = config.CHATBOTS
 ARANGO_HOST = config.ARANGO_HOST
 ARANGO_USERNAME = config.ARANGO_USERNAME
@@ -122,7 +123,7 @@ def add_questions(df, factcheck_prompt = "Is this statement true: "):
     dfq["question"] = factcheck_prompt + dfq["claim"]
     return dfq
 
-def ask_questions(df, chatbots, save_folder, max_workers = 10):
+def ask_questions(df, chatbots, save_folder, creds, gdrive_save_id, max_workers = 10):
     """
     Asks a set of questions in a dataframe to a series of chatbots, saves their answers as
     JSON files, and returns a dataframe containing all previous data and the filepaths.
@@ -133,6 +134,9 @@ def ask_questions(df, chatbots, save_folder, max_workers = 10):
         chatbots (str[]): List of chatbot names to query (corresponding to a chatbot name in
         cb_functions).
         save_folder (str): Path to folder to save JSON responses.
+        creds (google.oauth2.credentials.Credentials): Authenticated Google API credentials.
+        gdrive_save_id (str): ID for Google Drive folder to save to (i.e.
+        https://drive.google.com/drive/u/0/folders/[FOLDER_ID]).
         max_workers (int): Maximum number of workers for threading.
     
     Returns:
@@ -185,16 +189,20 @@ def ask_questions(df, chatbots, save_folder, max_workers = 10):
             out_path = os.path.join(save_folder, f"AMT-FactCheck-{timestamp}-{count:05d}.json")
             with open(out_path, "w") as file:
                 json.dump(response, file)
+            save_url = gd.upload_file(creds, gdrive_save_id, out_path)
             # record path in a row (duplicated from original) and return
             result_dict = row_dict.copy()
             result_dict["ai client"] = response["model"]
-            result_dict["response path"] = out_path
+            # error message for url if missing
+            if save_url == "":
+                save_url = "error creating url"
+            result_dict["response url"] = save_url
             return result_dict
         except Exception as e:
             print(f"Error in ask_questions: {e}")
             result_dict = row_dict.copy()
             result_dict["ai client"] = f"ERROR w/ {chatbot}"
-            result_dict["response path"] = "an error occurred"
+            result_dict["response url"] = "an error occurred"
             return result_dict
 
     # build task list
@@ -228,7 +236,7 @@ if __name__ == "__main__":
     # create new child sheet
     timestamp = now.strftime("%Y-%m-%d")
     child_sheet_name = f"AMT Fact Check {timestamp}"
-    child_sheet_id = gd.create_spreadsheet(creds, child_sheet_name, DATA_FOLDER_ID, public_access = True, tab_name = "claims")
+    child_sheet_id = gd.create_spreadsheet(creds, child_sheet_name, DATASET_FOLDER_ID, public_access = True, tab_name = "claims")
     child_sheet_url = f"https://docs.google.com/spreadsheets/d/{child_sheet_id}/"
 
     # append new row to master
@@ -239,10 +247,13 @@ if __name__ == "__main__":
     gd.pd_to_sheet(creds, child_sheet_id, df, "claims")
     gd.format_tab(creds, child_sheet_id, tab_name = "claims", format_name = "claims")
 
+    # create local and Google Drive output folders, if necessary
+    save_folder = os.path.join(OUT_FOLDER, now.strftime("%Y-%m-%d"))
+    gdrive_save_id = gd.create_folder(creds, JSON_FOLDER_ID, timestamp)
+
     # generate questions dataframe, then answers dataframe
     dfq = add_questions(df)
-    save_folder = os.path.join(OUT_FOLDER, now.strftime("%Y-%m-%d"))
-    dfqa = ask_questions(dfq, CHATBOTS, save_folder)
+    dfqa = ask_questions(dfq, CHATBOTS, save_folder, creds, gdrive_save_id)
 
     # import data into "news questions" tab and nicely format
     gd.pd_to_sheet(creds, child_sheet_id, dfqa, "claim questions")
@@ -252,3 +263,5 @@ if __name__ == "__main__":
     backup_folder = os.path.join(save_folder, "datasets")
     gd.save_backup_csv(df, backup_folder, f"{timestamp}-factcheck-claims.csv")
     gd.save_backup_csv(dfqa, backup_folder, f"{timestamp}-factcheck-questions.csv")
+
+    print("AMT Fact Check Questions workflow finished!")

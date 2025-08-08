@@ -1,11 +1,13 @@
 import os.path
 
 import pandas as pd
+from tqdm import tqdm
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 from googleapiclient.errors import HttpError
 
 import config
@@ -49,14 +51,109 @@ def authenticate(credentials_path, token_path):
     
     return creds
 
+def create_folder(creds, parent_folder_id, folder_name):
+    """
+    Uses Google Drive API to create a folder, if the folder doesn't already exist.
+
+    Args:
+        creds (google.oauth2.credentials.Credentials): Authenticated Google API credentials.
+        parent_folder_id (str): Folder ID for the parent folder to create folder (i.e.
+        https://drive.google.com/drive/u/0/folders/[FOLDER_ID]).
+        folder_name (str): Name of folder to create (or skip if already exists).
+    
+    Returns:
+        str: Google Drive ID corresponding to the new (or already existing) folder.
+    """
+    # attempt to create folder
+    try:
+        # connect to Google Drive API
+        service = build('drive', 'v3', credentials = creds)
+
+        # query to check if folder exists
+        query = (
+            f"'{parent_folder_id}' in parents and "
+            f"name = '{folder_name}' and "
+            f"mimeType = 'application/vnd.google-apps.folder' and "
+            f"trashed = false"
+        )
+        response = service.files().list(q = query, spaces = "drive", fields = "files(id, name)").execute()
+        folders = response.get("files", [])
+
+        # if exists, just return its ID
+        if folders:
+            return folders[0]['id']
+
+        # otherwise, create a new folder and return ID
+        file_metadata = {
+            "name": folder_name,
+            "mimeType": "application/vnd.google-apps.folder",
+            "parents": [parent_folder_id]
+        }
+        folder = service.files().create(body = file_metadata, fields = "id").execute()
+        return folder.get("id")
+
+    # return None in case of error
+    except Exception as err:
+        print(f"Error in create_folder(): {err}")
+        return None
+
+def upload_file(creds, folder_id, filepath):
+    """
+    Uses Google Drive API to upload a folder to a given Google Drive folder.
+
+    Args:
+        creds (google.oauth2.credentials.Credentials): Authenticated Google API credentials.
+        folder_id (str): Folder ID for the parent folder to upload file (i.e.
+        https://drive.google.com/drive/u/0/folders/[FOLDER_ID]).
+        filepath (str): Path to file to upload.
+    
+    Returns:
+        str: Google Drive URL pointing to uploaded file.
+    """
+    # initialize empty url result
+    file_url = ""
+
+    # attempt to upload file, returning empty url in case of error
+    try:
+        if folder_id:
+            # connect to Google Drive API
+            service = build('drive', 'v3', credentials = creds)
+
+            # create file metadata
+            filename = os.path.basename(filepath)
+            file_metadata = {
+                'name': filename,
+                'parents': [folder_id]
+            }
+
+            # create media upload object
+            media = MediaFileUpload(filepath, resumable = True)
+
+            # upload file
+            uploaded_file = service.files().create(
+                body = file_metadata,
+                media_body = media,
+                fields = "id"
+            ).execute()
+
+            # build and return URL
+            file_id = uploaded_file.get("id")
+            file_url = f"https://drive.google.com/file/d/{file_id}"
+    
+    except Exception as err:
+        print(f"Error in upload_file(): {err}")
+
+    return file_url
+
 def create_spreadsheet(creds, sheet_name, folder_id, public_access = False, tab_name = None):
     """
     Creates a new Google Spreadsheet and returns its ID and URL.
 
     Args:
-        creds (google.oauth2.credentials.Credentials): Authenticated Google Sheets API credentials.
+        creds (google.oauth2.credentials.Credentials): Authenticated Google API credentials.
         sheet_name (str): The name of the spreadsheet.
-        folder_id (str): Folder ID for the target folder to create new sheet.
+        folder_id (str): Folder ID for the target folder to create new sheet (i.e.
+        https://drive.google.com/drive/u/0/folders/[FOLDER_ID]).
         public_access (bool): Whether the new sheet should be publicly accessible.
         tab_name (str): If set, replaces default "Sheet1" tab with a custom name.
 
@@ -96,14 +193,14 @@ def create_spreadsheet(creds, sheet_name, folder_id, public_access = False, tab_
         return sheet_id
 
     except HttpError as err:
-        print(f"ERROR: {err}")
+        print(f"Error in create_spreadsheet(): {err}")
 
 def pd_to_sheet(creds, sheet_id, df, tab_name):
     """
     Writes a Pandas Dataframe of data to a tab within a Google Sheet, creating tab if nonexistent.
 
     Args:
-        creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        creds (google.oauth2.credentials.Credentials): The authenticated Google API credentials object.
         sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         df (Pandas.DataFrame): Data to write.
         tab_name (str): Name of tab to write to (creates new tab if doesn't exist).
@@ -151,14 +248,14 @@ def pd_to_sheet(creds, sheet_id, df, tab_name):
         print(f"DataFrame written to '{tab_name}'.")
 
     except Exception as err:
-        print(f"ERROR: {err}")
+        print(f"Error in pd_to_sheet(): {err}")
 
 def sheet_to_pd(creds, sheet_id, tab_name):
     """
     Fetches data from a given tab within a Google Sheet and writes to a Pandas df.
 
     Args:
-        creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        creds (google.oauth2.credentials.Credentials): The authenticated Google API credentials object.
         sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         tab_name (str): Name of tab to read from.
     
@@ -183,7 +280,7 @@ def sheet_to_pd(creds, sheet_id, tab_name):
         return df
     
     except Exception as err:
-        print(f"ERROR: {err}")
+        print(f"Error in sheet_to_pd(): {err}")
         return pd.DataFrame()
 
 
@@ -192,7 +289,7 @@ def append_row(creds, sheet_id, tab_name, row_values):
     Appends a row to an already existing tab within a sheet.
 
     Args:
-        creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        creds (google.oauth2.credentials.Credentials): The authenticated Google API credentials object.
         sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         tab_name (str): The name of the target tab to append data to.
         row_values (list): List of values to append.
@@ -228,7 +325,7 @@ def get_tab_id(creds, sheet_id, tab_name):
     Returns the numeric tab ID of a given tab name in a sheet.
 
     Args:
-        creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        creds (google.oauth2.credentials.Credentials): The authenticated Google API credentials object.
         sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         tab_name (str): The name of the target tab to identify.
     
@@ -251,15 +348,15 @@ def get_tab_id(creds, sheet_id, tab_name):
                 return s.get("properties").get("sheetId")
         return None
     
-    except HttpError as err:
-        print(f"ERROR: {err}")
+    except Exception as err:
+        print(f"Error in get_tab_id(): {err}")
 
 def delete_tab(creds, sheet_id, tab_name):
     """
     Deletes a given tab within a Google Sheet.
 
     Args:
-        creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        creds (google.oauth2.credentials.Credentials): The authenticated Google API credentials object.
         sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         tab_name (str): The name of the target tab to delete.
     
@@ -297,15 +394,15 @@ def delete_tab(creds, sheet_id, tab_name):
         sheet.batchUpdate(spreadsheetId = sheet_id, body = delete_request).execute()
         print(f"Successfully deleted tab '{tab_name}'")
 
-    except HttpError as err:
-        print(f"ERROR: {err}")
+    except Exception as err:
+        print(f"Error in delete_tab(): {err}")
 
 def create_tab(creds, sheet_id, tab_name):
     """
     Creates a named tab within a given Google Sheet.
 
     Args:
-        creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        creds (google.oauth2.credentials.Credentials): The authenticated Google API credentials object.
         sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         tab_name (str): The name of the tab to create.
     
@@ -325,7 +422,7 @@ def apply_formatting(creds, sheet_id, format_requests):
     Applies a list of formatting requests to a given tab in a sheet.
 
     Args:
-        creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        creds (google.oauth2.credentials.Credentials): The authenticated Google API credentials object.
         sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         format_requests (dict[]): A list of formatting requests to be applied to the target tab (specified in request).
     
@@ -345,8 +442,8 @@ def apply_formatting(creds, sheet_id, format_requests):
         # apply formatting
         print("Formatting requests successfully applied.")
 
-    except HttpError as err:
-        print(f"ERROR: {err}")
+    except Exception as err:
+        print(f"Error in apply_formatting(): {err}")
 
 def format_tab(creds, sheet_id, tab_name, format_name):
     """
@@ -354,7 +451,7 @@ def format_tab(creds, sheet_id, tab_name, format_name):
     bold headers, text wrapping, and columns spaced for the given tab.
 
     Args:
-        creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        creds (google.oauth2.credentials.Credentials): The authenticated Google API credentials object.
         sheet_id (str): The ID for the child Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
         tab_name (str): Name of tab to format.
         format_name (str): Name of formatting type to apply (currently "master", "headlines", "news questions",
@@ -456,7 +553,7 @@ def format_tab(creds, sheet_id, tab_name, format_name):
                 "fields": "pixelSize"
             }
         },
-        { # set "url" width to 800px
+        { # set "url" width to 600px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -465,7 +562,7 @@ def format_tab(creds, sheet_id, tab_name, format_name):
                     "endIndex": 4
                 },
                 "properties": {
-                    "pixelSize": 800
+                    "pixelSize": 600
                 },
                 "fields": "pixelSize"
             }
@@ -502,7 +599,7 @@ def format_tab(creds, sheet_id, tab_name, format_name):
                 "fields": "pixelSize"
             }
         },
-        { # set "response path" width to 300px
+        { # set "response url" width to 500px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -511,7 +608,7 @@ def format_tab(creds, sheet_id, tab_name, format_name):
                     "endIndex": 7
                 },
                 "properties": {
-                    "pixelSize": 300
+                    "pixelSize": 500
                 },
                 "fields": "pixelSize"
             }
@@ -548,7 +645,7 @@ def format_tab(creds, sheet_id, tab_name, format_name):
                 "fields": "pixelSize"
             }
         },
-        { # set "response path" width to 300px
+        { # set "response url" width to 500
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -557,7 +654,7 @@ def format_tab(creds, sheet_id, tab_name, format_name):
                     "endIndex": 3
                 },
                 "properties": {
-                    "pixelSize": 300
+                    "pixelSize": 500
                 },
                 "fields": "pixelSize"
             }
@@ -622,7 +719,7 @@ def format_tab(creds, sheet_id, tab_name, format_name):
                 "fields": "pixelSize"
             }
         },
-        { # set "appearance url" width to 400px
+        { # set "appearance url" width to 500px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -631,12 +728,12 @@ def format_tab(creds, sheet_id, tab_name, format_name):
                     "endIndex": 5
                 },
                 "properties": {
-                    "pixelSize": 400
+                    "pixelSize": 500
                 },
                 "fields": "pixelSize"
             }
         },
-        { # set "context url" width to 400px
+        { # set "context url" width to 500px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -645,7 +742,7 @@ def format_tab(creds, sheet_id, tab_name, format_name):
                     "endIndex": 6
                 },
                 "properties": {
-                    "pixelSize": 400
+                    "pixelSize": 500
                 },
                 "fields": "pixelSize"
             }
@@ -682,7 +779,7 @@ def format_tab(creds, sheet_id, tab_name, format_name):
                 "fields": "pixelSize"
             }
         },
-        { # set "response path" width to 300px
+        { # set "response url" width to 500px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
@@ -691,7 +788,7 @@ def format_tab(creds, sheet_id, tab_name, format_name):
                     "endIndex": 9
                 },
                 "properties": {
-                    "pixelSize": 300
+                    "pixelSize": 500
                 },
                 "fields": "pixelSize"
             }
