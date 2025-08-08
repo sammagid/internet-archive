@@ -17,26 +17,35 @@ GOOGLE_CREDENTIALS_PATH = config.GOOGLE_CREDENTIALS_PATH
 GOOGLE_TOKEN_PATH = config.GOOGLE_TOKEN_PATH
 DATA_FOLDER_ID = config.DATA_FOLDER_ID
 MASTER_SHEET_ID = config.MASTER_SHEET_ID
-LT_QUESTIONS_PATH = config.LT_QUESTIONS_PATH
+LT_QUESTIONS_SHEET_ID = config.LT_QUESTIONS_SHEET_ID
 MAX_LT_QUESTIONS = config.MAX_LT_QUESTIONS
 OUT_FOLDER = config.OUT_FOLDER
 CHATBOTS = config.CHATBOTS
 
-def load_questions(questions_path, question_limit):
+def load_questions(creds, question_sheet_id, question_tab_name, question_limit = None):
     """
-    Imports a question file (currently .txt) and returns them as a Python list.
+    Imports longterm questions from a Google Sheet.
 
     Args:
-        question_path (str): Path to question list file (plain text).
+        creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        question_sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
+        question_tab_name (str): Name of the tab to read from (must include a "question" column).
         question_limit (int): Maximum number of questions to import.
     
     Returns:
         str[]: List of question strings.
     """
-    with open(questions_path, "r", encoding = "utf-8") as f:
-        questions = [line.strip() for line in f if line.strip()]
-        if question_limit:
-            questions = questions[:question_limit]
+    # fetch data from Google Sheets API
+    df = gd.sheet_to_pd(creds, question_sheet_id, question_tab_name)
+
+    # get list of questions from "question" column
+    questions = df["question"].tolist()
+
+    # shorten if specified
+    if question_limit:
+        questions = questions[:question_limit]
+    print(f"Successfully fetched {len(questions)} longterm questions from Longterm Question Set Google Sheet!")
+
     return questions
 
 def answer_questions(questions, chatbots, save_folder, max_workers = 10):
@@ -129,7 +138,7 @@ if __name__ == "__main__":
     now = datetime.now()
 
     # fetch longterm questions, ask, and put into pandas df
-    questions = load_questions(LT_QUESTIONS_PATH, MAX_LT_QUESTIONS)
+    questions = load_questions(creds, LT_QUESTIONS_SHEET_ID, "questions", MAX_LT_QUESTIONS)
     save_folder = os.path.join(OUT_FOLDER, now.strftime("%Y-%m-%d"))
     dfqa = answer_questions(questions, CHATBOTS, save_folder)
 
