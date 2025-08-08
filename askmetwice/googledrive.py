@@ -645,7 +645,7 @@ def format_tab(creds, sheet_id, tab_name, format_name):
                 "fields": "pixelSize"
             }
         },
-        { # set "response url" width to 500
+        { # set "response url" width to 500px
             "updateDimensionProperties": {
                 "range": {
                     "sheetId": tab_id,
