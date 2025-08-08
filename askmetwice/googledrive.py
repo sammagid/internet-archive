@@ -64,6 +64,7 @@ def create_spreadsheet(creds, sheet_name, folder_id, public_access = False, tab_
         str: Spreadsheet ID for newly created spreadsheet.
     """
     try:
+        # connect to google drive api
         drive_service = build("drive", "v3", credentials = creds)
 
         # build request for new sheet within folder
@@ -116,6 +117,7 @@ def pd_to_sheet(creds, sheet_id, df, tab_name):
         return
 
     try:
+        # connect to google sheets api
         service = build("sheets", "v4", credentials = creds)
         sheet = service.spreadsheets()
 
@@ -148,8 +150,42 @@ def pd_to_sheet(creds, sheet_id, df, tab_name):
 
         print(f"DataFrame written to '{tab_name}'.")
 
-    except HttpError as err:
+    except Exception as err:
         print(f"ERROR: {err}")
+
+def sheet_to_pd(creds, sheet_id, tab_name):
+    """
+    Fetches data from a given tab within a Google Sheet and writes to a Pandas df.
+
+    Args:
+        creds (google.oauth2.credentials.Credentials): The authenticated Google Sheets credentials object.
+        sheet_id (str): The ID for the target Google Sheet (i.e. docs.google.com/spreadsheets/d/[SHEET_ID]/edit).
+        tab_name (str): Name of tab to read from.
+    
+    Returns:
+        pandas.DataFrame: Dataframe of data from the given sheet and tab.
+    """
+    try:
+        # connect to google api
+        service = build("sheets", "v4", credentials = creds)
+        sheet = service.spreadsheets()
+
+        # fetch values
+        result = sheet.values().get(spreadsheetId = sheet_id, range = tab_name).execute()
+        values = result.get("values", [])
+        if not values:
+            print('No data found.')
+            return pd.DataFrame()
+        
+        # use first row as headers
+        header, *rows = values
+        df = pd.DataFrame(rows, columns=header)
+        return df
+    
+    except Exception as err:
+        print(f"ERROR: {err}")
+        return pd.DataFrame()
+
 
 def append_row(creds, sheet_id, tab_name, row_values):
     """
