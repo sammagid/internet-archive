@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# set timezone (for timestamping)
+export TZ="America/Los_Angeles"
+
 # start timer
 START_TIME=$(date +%s)
 
