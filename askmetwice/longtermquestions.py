@@ -146,6 +146,7 @@ if __name__ == "__main__":
     now = datetime.now()
 
     # create local and Google Drive output folders, if necessary
+    timestamp = now.strftime("%Y-%m-%d")
     save_folder = os.path.join(OUT_FOLDER, now.strftime("%Y-%m-%d"))
     gdrive_save_id = gd.create_folder(creds, JSON_FOLDER_ID, timestamp)
 
@@ -154,7 +155,6 @@ if __name__ == "__main__":
     dfqa = answer_questions(questions, CHATBOTS, save_folder, creds, gdrive_save_id)
 
     # create new sheet for child dataset
-    timestamp = now.strftime("%Y-%m-%d")
     child_sheet_name = f"AMT Long Term {timestamp}"
     child_sheet_id = gd.create_spreadsheet(creds, child_sheet_name, DATASET_FOLDER_ID, public_access = True, tab_name = "longterm questions")
     child_sheet_url = f"https://docs.google.com/spreadsheets/d/{child_sheet_id}/"
