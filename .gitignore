@@ -26,3 +26,4 @@ crawls/
 browsertrix/
 puppet/
 arangodb/
+.venv/

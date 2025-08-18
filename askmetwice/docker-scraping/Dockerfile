@@ -28,9 +28,10 @@ COPY . /home/headless/app
 WORKDIR /home/headless/app
 
 # Install python
-RUN python3 -m venv .venv
-RUN .venv/bin/python3 -m pip install --upgrade pip
-RUN .venv/bin/python3 -m pip install -r requirements.txt
+# RUN python3 -m venv .
+# # RUN python3 -m venv .venv
+# RUN python3 -m pip install --upgrade pip
+# RUN python3 -m pip install -r requirements.txt
 
 # Electrom has a version of the driver that works with modern versions of Chrome
 # You can find it here: https://github.com/electron/chromedriver/releases

@@ -220,13 +220,13 @@ class Scraper:
                 share_button.click()
                 print("[+] Share button clicked")
 
-                print("[+] Waiting for link input...")
+                print("[+] Waiting for copy link button...")
                 link_input = wait.until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, 'input[readonly][type="text"]'))
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'button[data-testid="copy-link-button"]'))
                 )
-                print("[+] Link input found")
-                print("[-] Getting link input value...")
-                share_url = link_input.get_attribute('value')
+                print("[+] Copy link button found")
+                print("[-] Getting current URL...")
+                share_url = driver.current_url
                 print("[+] Share Link Found: " + share_url)
                 print("[+] Returning share URL...")
                 return share_url

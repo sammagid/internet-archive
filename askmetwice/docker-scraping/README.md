@@ -29,6 +29,8 @@ Raspberry Pi's, or any other non-Apple ARM operating system Chromdriver
 will break on. It may be able to build for that, but this is only 
 designed for servers, and so far x86/amd64 has won that battle... for now
 
+NOTE: If you're running on a Mac, make sure "Use Rosetta for x86_64/amd64 emulation on Apple Silicon" is enabled under Virtual Machine Options, or else this will not work.
+
 ### Quick Start
 
 #### Using Docker
