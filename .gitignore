@@ -12,6 +12,7 @@ pyrightconfig.json
 *.txt
 *.log
 *.json
+*.png
 
 # ignore config files
 config.py

@@ -1,0 +1,21 @@
+services:
+  ai-scraper:
+    container_name: aiscrapper
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    volumes:
+      - ./:/home/headless/app
+      - ./logs:/var/logs
+      - ./results:/home/headless/results
+    working_dir: /home/headless/app
+    environment:
+      - PORT=5010
+    ports:
+      - "5010:5010"
+      - "5901:5901"
+      - "6901:6901"
+    command:
+      - /bin/bash
+      - /home/headless/app/entrypoint.sh    
