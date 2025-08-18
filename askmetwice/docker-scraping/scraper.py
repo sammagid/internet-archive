@@ -169,7 +169,7 @@ class Scraper:
     
         return "[x] Max tries exceeded."
 
-    def ask_perplexity(self, question, waittime, numtries):
+    def ask_perplexity(self, question, waittime = 20, numtries = 3):
         """
         Asks a question at peplexity.ai and returns a share URL to that conversation.
 
