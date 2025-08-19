@@ -23,6 +23,12 @@ def scrape_perplexity():
     response = scraper.ask_perplexity("What is the capital of France?")
     return format_response(response, "perplexity")
 
+@app.route("/scrape/grok")
+def scrape_grok():
+    scraper = Scraper()
+    response = scraper.ask_grok("What is the capital of France?")
+    return format_response(response, "grok")
+
 def format_response(response, source):
     return {
         "response": "<p>" + response + "</p>",

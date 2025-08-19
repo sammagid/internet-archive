@@ -13,7 +13,8 @@ CHROME_USER_DATA_DIR = "/tmp/test-profile"
 
 class Scraper:
     def __init__(self):
-        self.driver = self.create_driver(CHROME_USER_DATA_DIR)
+        # self.driver = self.create_driver(CHROME_USER_DATA_DIR)
+        print("init")
 
     def create_driver(self, chrome_user_data_dir, profile_suffix = "Default"):
         """
@@ -31,10 +32,12 @@ class Scraper:
         options.add_argument(f"--user-data-dir={chrome_user_data_dir}")
         options.add_argument(f"--profile-directory={profile_suffix}")
         options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
+        # options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--disable-infobars")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--disable-software-rasterizer")
 
         return uc.Chrome(options = options)
 
@@ -51,7 +54,7 @@ class Scraper:
         Returns:
             str: Public share URL to the question conversation.
         """
-        driver = self.driver
+        driver = self.create_driver(CHROME_USER_DATA_DIR)
         print("[+] Asking CHATGPT question: " + question)
 
         tries_attempted = 0
@@ -182,7 +185,7 @@ class Scraper:
         Returns:
             str: Public share URL to the question conversation.
         """
-        driver = self.driver
+        driver = self.create_driver(CHROME_USER_DATA_DIR)
         print("[+] Asking PERPLEXITY question: " + question)
 
         tries_attempted = 0
@@ -236,6 +239,84 @@ class Scraper:
                 print(f"[x] Error asking question '{question}'. Trying again.")
                 # driver.save_screenshot("headless_debug_error.png")
                 tries_attempted += 1
+    
+        return "[x] Max tries exceeded."
+
+    def ask_grok(self, question, waittime = 20, numtries = 3):
+        """
+        Asks a question at grok.com and returns a share URL to that conversation.
+
+        Args:
+            driver (uc.Chrome): Chrome driver to run scripted requests.
+            question (str): Question to ask grok.com.
+            waittime (int): Maximum time (in seconds) to wait for an element to appear.
+            numtries (int): Number of times to try a request if error.
+        
+        Returns:
+            str: Public share URL to the question conversation.
+        """
+        print("[+] Asking GROK question: " + question)
+        driver = None
+
+        tries_attempted = 0
+        while tries_attempted < numtries:
+            try:
+                driver = self.create_driver(CHROME_USER_DATA_DIR)
+                print("[+] Attempt " + str(tries_attempted + 1) + " of " + str(numtries))
+                # load grok page
+                driver.get("https://grok.com")
+                wait = WebDriverWait(driver, waittime)
+
+                # enter text
+                textarea = wait.until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'textarea[aria-label="Ask Grok anything"]'))
+                )
+                print("[+] Textarea found")
+                print("[-] Clicking textarea...")
+                textarea.click()
+                print("[+] Textarea clicked")
+                print("[-] Sending keys...")
+                textarea.send_keys(question)
+                print("[+] Keys sent")
+                # time.sleep(1)
+                print("[-] Sending RETURN...")
+                textarea.send_keys(Keys.RETURN)
+                print("[+] RETURN sent")
+                tries_attempted += 1
+
+                print("[+] Waiting for share button...")
+                # click share button
+                share_button = wait.until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[aria-label="Share conversation"]'))
+                )
+                print("[+] Share button found")
+                print("[-] Clicking share button...")
+                share_button.click()
+                print("[+] Share button clicked")
+
+                time.sleep(1)
+
+                root = tk.Tk()
+                root.withdraw()  # to hide the window
+                clipboard_content = root.clipboard_get()
+                print("[+] Clipboard content: " + clipboard_content)
+
+                driver.delete_all_cookies()
+                driver.execute_cdp_command('Storage.clearDataForOrigin', {
+                    "origin": '*',
+                    "storageTypes": 'all',
+                })
+                driver.quit()
+
+                return clipboard_content
+
+            except Exception as err:
+                print(err)
+                print(f"[x] Error asking question '{question}'. Trying again.")
+                # driver.save_screenshot("headless_debug_error.png")
+                tries_attempted += 1
+                if driver is not None:
+                    driver.quit()
     
         return "[x] Max tries exceeded."
 
