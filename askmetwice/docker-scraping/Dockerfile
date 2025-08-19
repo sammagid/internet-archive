@@ -5,6 +5,9 @@ ARG HEADLESS_USER_UID="1000"
 FROM accetto/debian-vnc-xfce-g3:latest AS ai-scraper-base-chrome
 USER 0
 
+ENV VNC_RESOLUTION=2560x1440
+ENV VNC_COL_DEPTH=24
+
 RUN \
     apt-get update \
     && apt-get install -y --no-install-recommends \
